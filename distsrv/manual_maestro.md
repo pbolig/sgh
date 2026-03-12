@@ -53,17 +53,14 @@ docker logs -f sgh-backend
 
 <div id="3-git-workflow"></div>
 
-### 3. Control de Versiones (Git Branches)
-Utilizamos ramas para asegurar que el código en producción siempre sea estable.
+### 3. Control de Versiones (Git)
+Utilizamos Git para mantener un historial de cambios y transferir el código al servidor.
 
--   **Rama `dev`:** Aquí vive el código que estás desarrollando localmente.
--   **Rama `main`:** Aquí solo llega el código que ya probaste y funciona.
-
-#### Circuito Pro:
-1.  **Desarrollar en local** (Docker).
-2.  `git add .` -> `git commit -m "Mejora X"` -> `git push origin dev`.
-3.  **Hacer el Merge:** Cuando la mejora esté lista, pasar a `main`.
-4.  **Desplegar:** En la VM Debian, hacer un `git pull` de la rama `main`.
+#### Flujo de Código:
+1.  **Desarrollar y probar en local** (Docker).
+2.  `git add .` -> `git commit -m "Descripción del cambio"`.
+3.  `git push origin main`.
+4.  **En la VM Debian:** Entrar a la carpeta y ejecutar `git pull` para recibir la última versión estable.
 
 ---
 
