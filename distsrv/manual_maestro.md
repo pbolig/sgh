@@ -19,9 +19,9 @@ Este manual describe el flujo de trabajo profesional para el desarrollo del Sist
 ### 1. Arquitectura del Sistema
 El sistema es una **Single Page Application (SPA)** de arquitectura moderna y ligera:
 - **Frontend:** HTML5, CSS3 (Vanilla) y JavaScript Moderno (ES6+).
-- **Persistencia:** Turso (SQLite distribuido en la nube).
-- **Servidor de Desarrollo:** PC Virtual Debian Nativo (con Nginx).
-- **Servidor de Producción:** Vercel (Hosting Serverless).
+- **Persistencia:** PostgreSQL (Base de datos nativa en la VM).
+- **Backend:** API REST desarrollada en Python con FastAPI.
+- **Servidor de Desarrollo:** PC Virtual Debian Nativo (Nginx + Backend + DB).
 
 ---
 
