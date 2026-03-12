@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SGH - Sistema de Gestión de Horarios</title>
+    <meta name="description" content="Sistema de Gestión de Horarios Institucionales con persistencia en Turso.">
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="app">
+        <!-- Pantalla de Login -->
+        <div id="login-screen" class="screen">
+            <div class="login-card">
+                <div class="login-header">
+                    <div class="logo">SGH</div>
+                    <h1>Bienvenido</h1>
+                    <p>Inicie sesión para gestionar los horarios</p>
+                </div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Usuario</label>
+                        <input type="text" id="username" placeholder="Ingrese su usuario" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Contraseña</label>
+                        <input type="password" id="password" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary">Ingresar</button>
+                    <div id="login-error" class="error-message hidden">Usuario o contraseña incorrectos</div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Dashboard Principal (Contenedor SPA) -->
+        <div id="main-screen" class="screen hidden">
+            <aside id="sidebar">
+                <div class="sidebar-header">
+                    <div class="logo">SGH</div>
+                </div>
+                <nav id="main-nav">
+                    <ul>
+                        <li class="active"><a href="#" data-route="dashboard">Dashboard</a></li>
+                        <li><a href="#" data-route="editor">Editor de Horarios</a></li>
+                        <li><a href="#" data-route="docentes">Docentes</a></li>
+                        <li><a href="#" data-route="departamentos">Departamentos</a></li>
+                        <li><a href="#" data-route="comisiones">Comisiones</a></li>
+                        <li><a href="#" data-route="reportes">Reportes</a></li>
+                    </ul>
+                </nav>
+                <div class="sidebar-footer">
+                    <div class="user-info">
+                        <span id="user-display">Admin</span>
+                        <button id="logout-btn">Cerrar Sesión</button>
+                    </div>
+                </div>
+            </aside>
+            <main id="content">
+                <header id="top-bar">
+                    <h2 id="page-title">Dashboard</h2>
+                    <div class="header-actions">
+                        <select id="dept-selector" class="select-modern">
+                            <!-- Opciones cargadas dinámicamente -->
+                        </select>
+                        <button id="print-btn" class="btn-icon">🖨️</button>
+                    </div>
+                </header>
+                <div id="view-container">
+                    <!-- Las vistas se cargan aquí dinámicamente -->
+                    <div id="dashboard-view" class="view">
+                        <div class="loading">Cargando datos...</div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="app.js" type="module"></script>
+</body>
+</html>
