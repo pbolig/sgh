@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: sgh-db
+    environment:
+      POSTGRES_DB: horarios
+      POSTGRES_USER: horarios_user
+      POSTGRES_PASSWORD: horarios123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    container_name: sgh-backend
+    environment:
+      - DATABASE_URL=postgresql://horarios_user:horarios123@db/horarios
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx:alpine
+    container_name: sgh-nginx
+    volumes:
+      - .:/usr/share/nginx/html
+      - ./nginx.local.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
