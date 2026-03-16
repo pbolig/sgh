@@ -503,18 +503,20 @@ export const Calendario = {
                 logging: false,
                 onclone: (clonedDoc) => {
                     const container = clonedDoc.getElementById('calendario-container');
-                    const mainLayout = clonedDoc.querySelector('.calendario-main-layout');
-                    const grid = clonedDoc.getElementById('calendario-grid');
                     const sidebar = clonedDoc.querySelector('.cal-sidebar');
                     const yearSelector = clonedDoc.querySelector('.year-selector');
                     const exportBtn = clonedDoc.querySelector('.btn-export');
                     
+                    // Ocultar elementos globales para evitar interferencias
+                    if (sidebar) sidebar.style.display = 'none';
+                    if (yearSelector) yearSelector.style.display = 'none';
+                    if (exportBtn) exportBtn.style.display = 'none';
+
                     if (container) {
                         if (isAnnual) {
                             // --- AJUSTES VISTA ANUAL (VERTICAL) ---
-                            if (sidebar) sidebar.style.display = 'none';
-                            if (yearSelector) yearSelector.style.display = 'none';
-                            if (exportBtn) exportBtn.style.display = 'none';
+                            const mainLayout = clonedDoc.querySelector('.calendario-main-layout');
+                            const grid = clonedDoc.getElementById('calendario-grid');
                             
                             if (mainLayout) {
                                 mainLayout.style.display = 'block'; 
@@ -524,31 +526,59 @@ export const Calendario = {
                             if (grid) {
                                 grid.style.display = 'grid';
                                 grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-                                grid.style.gap = '10px'; // Gap más compacto
+                                grid.style.gap = '10px';
                                 grid.style.width = '950px';
                             }
 
-                            // Compactamos tarjetas de mes
                             clonedDoc.querySelectorAll('.mcard').forEach(mc => {
                                 mc.style.padding = '10px';
                                 mc.style.border = '1px solid #eee';
                             });
                             
                             container.style.width = '1000px';
-                            container.style.height = 'auto'; // Permitir que crezca para capturar todo
+                            container.style.height = 'auto';
                         } else {
                             // --- AJUSTES VISTA MENSUAL (APAISADA) ---
                             const target = clonedDoc.querySelector('.single-month');
                             if (target) {
+                                // Forzamos dimensiones que coincidan con el ratio A4 Landscape (1.458)
                                 target.style.width = '1458px'; 
                                 target.style.height = '1000px';
+                                target.style.maxWidth = 'none';
                                 target.style.margin = '0';
-                                target.style.padding = '20px';
+                                target.style.padding = '30px';
+                                target.style.display = 'flex';
+                                target.style.flexDirection = 'column';
+                                target.style.background = 'white';
+                                
+                                const dcont = target.querySelector('.dcont-monthly');
+                                if (dcont) {
+                                    dcont.style.width = '100%';
+                                    dcont.style.flex = '1';
+                                    dcont.style.display = 'flex';
+                                    dcont.style.flexDirection = 'column';
+                                    dcont.style.gap = '20px';
+                                }
+
+                                // Asegurar que las sub-grillas se expandan horizontalmente
+                                const headerGrid = target.querySelector('.month-header-grid');
+                                const daysGrid = target.querySelector('.month-days-grid');
+                                if (headerGrid) {
+                                    headerGrid.style.width = '100%';
+                                    headerGrid.style.display = 'grid';
+                                    headerGrid.style.gridTemplateColumns = 'repeat(5, 1fr)';
+                                }
+                                if (daysGrid) {
+                                    daysGrid.style.width = '100%';
+                                    daysGrid.style.display = 'grid';
+                                    daysGrid.style.gridTemplateColumns = 'repeat(5, 1fr)';
+                                    daysGrid.style.flex = '1';
+                                }
                             }
                         }
                         container.style.background = 'white';
                         container.style.boxShadow = 'none';
-                        container.style.padding = '20px';
+                        container.style.padding = '10px';
                     }
                 }
             });
