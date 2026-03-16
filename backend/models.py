@@ -1,0 +1,145 @@
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy.orm import relationship
+from database import Base
+import datetime
+
+class Usuario(Base):
+    __tablename__ = "usuarios"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
+    password_hash = Column(String)
+    rol = Column(String)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class Departamento(Base):
+    __tablename__ = "departamentos"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, unique=True, index=True)
+    codigo = Column(String, unique=True, index=True)
+    descripcion = Column(Text, nullable=True)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    materias = relationship("Materia", back_populates="departamento")
+
+class Docente(Base):
+    __tablename__ = "docentes"
+    id = Column(Integer, primary_key=True, index=True)
+    apellido = Column(String, index=True)
+    nombre = Column(String, index=True)
+    email = Column(String, nullable=True)
+    telefono = Column(String, nullable=True)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class Materia(Base):
+    __tablename__ = "materias"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, index=True)
+    codigo = Column(String, unique=True, index=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    departamento = relationship("Departamento", back_populates="materias")
+    comisiones = relationship("Comision", back_populates="materia")
+
+class Aula(Base):
+    __tablename__ = "aulas"
+    id = Column(Integer, primary_key=True, index=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    nombre = Column(String, index=True)
+    capacidad = Column(Integer, nullable=True)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    departamento = relationship("Departamento")
+
+class Comision(Base):
+    __tablename__ = "comisiones"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String, unique=True, index=True)
+    materia_id = Column(Integer, ForeignKey("materias.id"))
+    turno = Column(String) # 'mañana' o 'tarde'
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    materia = relationship("Materia", back_populates="comisiones")
+    asignaciones = relationship("Asignacion", back_populates="comision")
+
+class ModuloHorario(Base):
+    __tablename__ = "modulos_horario"
+    id = Column(Integer, primary_key=True, index=True)
+    numero = Column(Integer)
+    hora_inicio = Column(String)
+    hora_fin = Column(String)
+    turno = Column(String)
+    activo = Column(Integer, default=1)
+
+class Asignacion(Base):
+    __tablename__ = "asignaciones"
+    id = Column(Integer, primary_key=True, index=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    aula_id = Column(Integer, ForeignKey("aulas.id"))
+    modulo_id = Column(Integer, ForeignKey("modulos_horario.id"))
+    dia_semana = Column(String)
+    comision_id = Column(Integer, ForeignKey("comisiones.id"), nullable=True)
+    docente_id = Column(Integer, ForeignKey("docentes.id"), nullable=True)
+    observaciones = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    updated_by = Column(String, nullable=True)
+
+    comision = relationship("Comision", back_populates="asignaciones")
+    docente = relationship("Docente")
+    aula = relationship("Aula")
+    modulo = relationship("ModuloHorario")
+
+class RecreoExcluido(Base):
+    __tablename__ = "recreos_excluidos"
+    id = Column(Integer, primary_key=True, index=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    dia_semana = Column(String) # 'lunes', 'martes', etc.
+    modulo_id_anterior = Column(Integer, ForeignKey("modulos_horario.id")) # El módulo tras el cual viene el recreo
+
+    departamento = relationship("Departamento")
+    modulo_anterior = relationship("ModuloHorario")
+
+# --- MODELOS DE CALENDARIO ---
+
+class Calendario(Base):
+    __tablename__ = "calendarios"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, index=True)
+    descripcion = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class CalendarioCategoria(Base):
+    __tablename__ = "calendario_categorias"
+    id = Column(Integer, primary_key=True, index=True)
+    calendario_id = Column(Integer, ForeignKey("calendarios.id"))
+    nombre = Column(String, index=True)
+    color = Column(String)
+
+class CalendarioEvento(Base):
+    __tablename__ = "calendario_eventos"
+    id = Column(Integer, primary_key=True, index=True)
+    calendario_id = Column(Integer, ForeignKey("calendarios.id"))
+    fecha = Column(String, index=True) # Formato YYYY-MM-DD
+    categoria_id = Column(Integer, ForeignKey("calendario_categorias.id"))
+    descripcion = Column(Text, nullable=True)
+
+    categoria = relationship("CalendarioCategoria")
+
+class NotaAdhesiva(Base):
+    __tablename__ = "notas_adhesivas"
+    id = Column(Integer, primary_key=True, index=True)
+    calendario_id = Column(Integer, ForeignKey("calendarios.id"))
+    texto = Column(Text)
+    color = Column(String, default="#feff9c")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

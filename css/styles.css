@@ -15,18 +15,36 @@
     --font-heading: 'Outfit', sans-serif;
 }
 
-* {
+html, body {
+    height: 100vh;
+    height: 100dvh;
     margin: 0;
     padding: 0;
-    box-sizing: border-box;
+    overflow: hidden;
+}
+
+/* Eliminamos scrollbars globales para evitar interferencias generales */
+* {
+    scrollbar-width: thin; /* Para Firefox */
+    scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
 }
 
 body {
     font-family: var(--font-main);
     background-color: var(--bg-main);
     color: var(--text-main);
+}
+
+#app, .screen {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
-    height: 100vh;
+}
+
+#main-screen {
+    flex-direction: row; /* Sidebar side by side with Content */
 }
 
 h1, h2, h3 {
@@ -38,11 +56,7 @@ h1, h2, h3 {
 }
 
 /* Base Screens */
-.screen {
-    width: 100%;
-    height: 100vh;
-    display: flex;
-}
+/* Quitamos .screen de aquí para evitar conflictos con la redefinición arriba */
 
 /* Login Screen Styles */
 #login-screen {
@@ -107,7 +121,7 @@ h1, h2, h3 {
     color: var(--text-dim);
 }
 
-.form-group input {
+.form-group input, .form-group select {
     width: 100%;
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--border);
@@ -118,10 +132,17 @@ h1, h2, h3 {
     transition: all 0.2s;
 }
 
-.form-group input:focus {
+.form-group input:focus, .form-group select:focus {
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+/* Mejora de contraste para opciones de select */
+select option {
+    background-color: #0f172a; /* Fondo muy oscuro para contraste */
+    color: white;
+    padding: 10px;
 }
 
 .btn-primary {
@@ -157,15 +178,81 @@ h1, h2, h3 {
     border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+#sidebar.collapsed {
+    width: 80px;
 }
 
 .sidebar-header {
     padding: 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#sidebar.collapsed .logo {
+    display: none;
+}
+
+#sidebar.collapsed .sidebar-header {
+    padding: 2rem 1rem;
+    justify-content: center;
+}
+
+.btn-toggle {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all 0.3s;
+}
+
+.btn-toggle:hover {
+    background: var(--primary);
+    color: white;
+}
+
+#sidebar.collapsed .btn-toggle {
+    transform: rotate(180deg);
 }
 
 #main-nav {
     flex: 1;
     padding: 0 1rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Scrollbar Sutil e Indigo para el Sidebar */
+#main-nav::-webkit-scrollbar {
+    width: 6px;
+}
+
+#main-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#main-nav::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+    border-radius: 10px;
+}
+
+#main-nav::-webkit-scrollbar-thumb:hover {
+    background: var(--primary);
+}
+
+#sidebar.collapsed #main-nav {
+    padding: 0 0.5rem;
 }
 
 #main-nav ul {
@@ -192,9 +279,24 @@ h1, h2, h3 {
     color: white;
 }
 
+#sidebar.collapsed #main-nav a {
+    padding: 0.75rem 0;
+    text-align: center;
+    font-size: 1.2rem;
+}
+
+#sidebar.collapsed #main-nav span {
+    display: none;
+}
+
 .sidebar-footer {
     padding: 1.5rem;
     border-top: 1px solid var(--border);
+    background: var(--bg-sidebar);
+}
+
+#sidebar.collapsed .sidebar-footer {
+    padding: 1rem 0.5rem;
 }
 
 .user-info {
@@ -206,6 +308,15 @@ h1, h2, h3 {
 #user-display {
     font-weight: 600;
     font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+#sidebar.collapsed .user-info {
+    align-items: center;
+}
+
+#sidebar.collapsed #user-display {
+    display: none;
 }
 
 #logout-btn {
@@ -224,20 +335,88 @@ h1, h2, h3 {
     display: flex;
     flex-direction: column;
     background: var(--bg-main);
-    overflow-y: auto;
+    overflow: hidden; /* Evitar scroll doble */
+}
+
+#view-container {
+    flex: 1;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    padding: 2rem;
+    min-height: 0;
+    position: relative;
+    scrollbar-gutter: stable;
+    transition: padding 0.3s ease;
+}
+
+#view-container.minimal-padding {
+    padding: 0.5rem;
+}
+
+/* Aplicamos estilo 'Calendario' SOLO al panel de contenido derecho */
+#view-container::-webkit-scrollbar {
+    width: 12px;
+}
+
+#view-container::-webkit-scrollbar-track {
+    background: #0f172a;
+    border-left: 1px solid var(--border);
+}
+
+#view-container::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    border: 3px solid #0f172a;
+}
+
+#view-container::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
 }
 
 #top-bar {
-    padding: 1.5rem 2rem;
+    padding: 1rem 2rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     border-bottom: 1px solid var(--border);
-    background: rgba(15, 23, 42, 0.8);
-    backdrop-filter: blur(8px);
+    background: #0f172a;
     position: sticky;
     top: 0;
-    z-index: 10;
+    z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+#top-bar.collapsed {
+    padding: 0.1rem 2rem;
+    height: 40px;
+}
+
+#top-bar.collapsed #page-title {
+    display: none;
+}
+
+.header-main {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-toggle-mini {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.7rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#top-bar.collapsed .btn-toggle-mini {
+    transform: rotate(180deg);
 }
 
 .select-modern {
@@ -248,6 +427,8 @@ h1, h2, h3 {
     border-radius: 0.5rem;
     font-family: inherit;
     outline: none;
+    cursor: pointer;
+    min-width: 150px;
 }
 
 .btn-icon {
@@ -260,9 +441,24 @@ h1, h2, h3 {
     margin-left: 0.5rem;
 }
 
+#view-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .view {
-    padding: 2rem;
+    flex: 1;
+    padding: 1.5rem;
     animation: fadeIn 0.3s ease-out;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#view-container:has(#grid-container) .view {
+    padding: 0.5rem 1rem 0 1rem; /* Casi sin padding arriba y abajo */
 }
 
 @keyframes fadeIn {
@@ -276,4 +472,2095 @@ h1, h2, h3 {
     align-items: center;
     height: 200px;
     color: var(--text-dim);
+}
+
+/* Module Layout */
+.module-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.module-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.module-header .btn-primary {
+    width: auto;
+    margin-top: 0;
+    padding: 0.625rem 1.25rem;
+}
+
+/* Data Table */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--bg-card);
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.data-table th, 
+.data-table td {
+    padding: 1rem 1.5rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+}
+
+.data-table th {
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    font-weight: 600;
+}
+
+.data-table tr:last-child td {
+    border-bottom: none;
+}
+
+.data-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-content {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    padding: 2rem;
+    border-radius: 1.5rem;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    z-index: 2001;
+}
+
+.modal-content h3 {
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+
+.modal-actions .btn-primary {
+    width: auto;
+}
+
+/* Utility Buttons */
+.btn-secondary {
+    background: var(--glass);
+    color: white;
+    border: 1px solid var(--border);
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-edit, .btn-delete {
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.5rem;
+    border: none;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-right: 0.5rem;
+    transition: all 0.2s;
+}
+
+.btn-edit {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--primary);
+}
+
+.btn-edit:hover {
+    background: var(--primary);
+    color: white;
+}
+
+.btn-delete {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
+}
+
+.btn-delete:hover {
+    background: var(--error);
+    color: white;
+}
+
+textarea {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    color: white;
+    font-family: inherit;
+    min-height: 100px;
+    resize: vertical;
+}
+
+textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+/* Grid Editor Styles */
+.editor-controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.grid-scroll {
+    width: 100%;
+    flex: 1; /* Ocupar todo el espacio disponible */
+    overflow: auto;
+    margin-top: 0; 
+    background: var(--bg-card);
+    border-radius: 1.5rem; /* Bordes más redondeados y completos */
+    padding: 0;
+    border: 1px solid var(--border);
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    margin-bottom: 0.5rem;
+}
+
+/* Scrollbar contrast */
+.grid-scroll::-webkit-scrollbar {
+    height: 14px;
+    width: 14px;
+}
+.grid-scroll::-webkit-scrollbar-track {
+    background: #0f172a;
+}
+.grid-scroll::-webkit-scrollbar-thumb {
+    background: #6366f1; /* Color vibrante para que se vea */
+    border-radius: 10px;
+    border: 3px solid #0f172a;
+}
+.grid-scroll::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
+}
+
+.grid-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.grid-table th {
+    padding: 1rem;
+    background: #1e293b; /* Color sólido para evitar transparencias al solapar */
+    border-bottom: 2px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    min-width: 150px;
+}
+
+.grid-table td {
+    border: 1px solid var(--border);
+    padding: 0;
+    vertical-align: top;
+}
+
+.time-cell {
+    background: #1e293b !important;
+    min-width: 120px;
+    padding: 0.5rem 1rem !important; /* Más compacto */
+    position: sticky;
+    left: 0;
+    z-index: 20;
+}
+
+.mod-num {
+    font-weight: 700;
+    font-size: 0.875rem;
+}
+
+.mod-time {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.grid-cell {
+    cursor: pointer;
+    transition: all 0.2s;
+    /* Remover min-height fijo para permitir compactación */
+}
+
+.grid-cell:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.empty-cell {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0.5rem;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    opacity: 0.3;
+}
+
+.asig-item {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    background: rgba(99, 102, 241, 0.15);
+    line-height: 1.2;
+}
+
+.asig-comision {
+    font-weight: 700;
+    color: var(--primary);
+    font-size: 0.9rem;
+}
+
+.asig-docente {
+    font-size: 0.8rem;
+    color: white;
+}
+
+.day-group-header td, 
+.header-days th {
+    background: rgba(99, 102, 241, 0.2) !important;
+    font-weight: 800;
+    text-align: center;
+    padding: 0.75rem !important;
+    color: var(--primary);
+    letter-spacing: 0.1em;
+    border: 1px solid var(--border) !important;
+}
+
+.header-aulas th {
+    font-size: 0.75rem;
+    background: rgba(0, 0, 0, 0.4);
+    color: var(--text-dim);
+    padding: 0.5rem !important;
+    min-width: 120px;
+}
+
+.grid-weekly .grid-cell {
+    min-width: 120px;
+}
+
+.grid-main-header {
+    background: var(--primary) !important;
+    color: white !important;
+    font-size: 1.5rem !important;
+    padding: 1rem !important;
+    text-align: center;
+    border: none !important;
+    font-family: var(--font-heading);
+    letter-spacing: 2px;
+}
+
+/* New Grid Header Controls */
+.grid-header-content {
+    display: flex;
+    justify-content: flex-start; /* Alineado a la izquierda */
+    align-items: center;
+    padding: 0.2rem 1rem;
+    gap: 2rem;
+}
+
+.dept-title {
+    flex: 1;
+    text-align: left;
+    font-size: 1.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.grid-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.select-mini {
+    background: rgba(30, 41, 59, 0.8); /* Fondo más sólido */
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    outline: none;
+    -webkit-appearance: none; /* Mejor control en algunos navegadores */
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='white' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14L3.451 6.633a.5.5 0 0 1 .398-.85h7.302a.5.5 0 0 1 .398.85L7.247 11.14z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 25px;
+}
+
+.select-mini option {
+    background-color: #1e293b;
+    color: white;
+    padding: 10px;
+}
+
+/* RECREOS */
+.break-row {
+    background: rgba(245, 158, 11, 0.08); /* Ámbar muy suave */
+    height: 32px;
+}
+
+.break-row td {
+    padding: 0 !important;
+    border-top: 1px solid rgba(245, 158, 11, 0.2);
+    border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+    text-align: center;
+    vertical-align: middle;
+}
+
+.break-content {
+    display: flex;
+    justify-content: flex-start; /* Alineado a la izquierda */
+    align-items: center;
+    gap: 1.5rem;
+    padding-left: 1.5rem; /* Margen para no pegar al borde */
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    font-weight: 600;
+}
+
+.break-excluded {
+    background: transparent !important;
+    border: 1px dashed rgba(255, 255, 255, 0.05) !important;
+    cursor: pointer;
+}
+
+.break-excluded:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+.break-label {
+    color: #f59e0b;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.break-duration {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+
+.break-time {
+    opacity: 0.6;
+    font-weight: 400;
+    letter-spacing: 1px;
+}
+
+/* --- BLINDAJE DE HEADERS STICKY (ALTURAS FIJAS Y PIXEL-PERFECT) --- */
+
+/* Fila 1: Departamento (Altura fija 60px) */
+.grid-table thead tr:nth-child(1) th { 
+    top: 0; 
+    height: 60px;
+    z-index: 500 !important; 
+    background: var(--primary) !important;
+    padding: 0 1rem !important;
+}
+
+/* Fila 2: Días (Altura fija 45px, top = height F1) */
+.grid-table thead tr:nth-child(2) th { 
+    top: 60px; 
+    height: 45px;
+    z-index: 490 !important; 
+    background: #1e293b !important;
+    padding: 0 !important;
+}
+
+/* Fila 3: Aulas (Altura fija 35px, top = height F1 + F2) */
+.grid-table thead tr:nth-child(3) th { 
+    top: 105px; 
+    height: 35px;
+    z-index: 480 !important; 
+    background: #0f172a !important;
+    padding: 0 !important;
+}
+
+/* Fila 4 (si existiera) */
+.grid-table thead tr:nth-child(4) th { 
+    top: 140px; 
+    z-index: 470 !important; 
+}
+
+/* PRIMERA COLUMNA (Sticky Horizontal y Vertical) */
+.time-cell {
+    position: sticky;
+    left: 0;
+    background: #1e293b !important;
+    border-right: 2px solid var(--primary) !important;
+    z-index: 450 !important; /* Entre los headers principales y las celdas de datos */
+}
+
+/* Los rincones superiores izquierdos deben tener mayor prioridad que sus filas */
+.grid-table thead tr:nth-child(1) .time-cell { z-index: 510 !important; }
+.grid-table thead tr:nth-child(2) .time-cell { z-index: 505 !important; }
+.grid-table thead tr:nth-child(3) .time-cell { z-index: 495 !important; }
+
+/* Separador vertical entre días */
+.day-divider {
+    border-left: 2px solid var(--primary) !important;
+}
+
+/* El main header debe estar siempre arriba de todo */
+.grid-main-header {
+    position: sticky;
+    top: 0;
+    background: var(--primary) !important;
+}
+
+/* --- ESTILOS DE IMPRESIÓN (INK-FRIENDLY & HIGH-CONTRAST) --- */
+@media print {
+    /* Ocultar elementos de UI */
+    #sidebar, #top-bar, .grid-controls, .sidebar-toggle, .btn-toggle-mini, .btn-icon, .select-mini, .sidebar-footer {
+        display: none !important;
+    }
+
+    /* Reset de layout total */
+    body, #app, #main-screen, #content, #view-container, .view {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: white !important;
+        color: black !important;
+        overflow: visible !important;
+    }
+
+    #content { margin-left: 0 !important; }
+
+    .grid-scroll {
+        overflow: visible !important;
+        height: auto !important;
+        border: none !important;
+        box-shadow: none !important;
+        background: white !important;
+        flex: none !important;
+    }
+
+    /* Desactivar STICKY para evitar cortes y solapamientos */
+    .grid-table thead tr th,
+    .time-cell,
+    .grid-main-header {
+        position: static !important;
+        top: auto !important;
+        left: auto !important;
+        z-index: auto !important;
+    }
+
+    /* Forzar colores de fondo y bordes */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
+    .grid-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        table-layout: auto !important;
+        border: 2px solid #000 !important;
+    }
+
+    .grid-table th, .grid-table td {
+        border: 1px solid #000 !important;
+        color: #000 !important;
+        padding: 4px !important;
+        font-size: 8pt !important;
+        background: white !important;
+    }
+
+    /* Resaltar cabeceras con gris claro para ahorro de tinta pero legibilidad */
+    .grid-main-header {
+        background-color: #eee !important;
+        padding: 10px !important;
+    }
+
+    .grid-table thead tr:nth-child(2) th { background-color: #f8f8f8 !important; }
+    .grid-table thead tr:nth-child(3) th { background-color: #fefefe !important; }
+
+    .dept-title {
+        color: #000 !important;
+        font-size: 14pt !important;
+        font-weight: bold !important;
+        display: block !important;
+        text-align: center !important;
+    }
+
+    .time-cell {
+        background-color: #f0f0f0 !important;
+        font-weight: bold !important;
+        min-width: 80px !important;
+    }
+
+    /* Asegurar que las materias se vean con alto contraste */
+    .asig-item {
+        background-color: #f0f4ff !important;
+        border: 1px solid #6366f1 !important;
+        color: #000 !important;
+        padding: 4px !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: center !important;
+    }
+
+    .asig-comision { 
+        color: #000 !important;
+        font-weight: bold !important; 
+        font-size: 9pt !important;
+        display: block !important;
+    }
+    
+    .asig-docente { 
+        color: #000 !important; 
+        font-weight: bold !important;
+        opacity: 1 !important;
+        font-size: 8.5pt !important;
+        margin-top: 2px !important;
+        display: block !important;
+    }
+
+    /* Estilos de Recreo en Impresión */
+    .break-row td {
+        background-color: #fff7ed !important; /* Soft orange tint */
+        border: 1px solid #f97316 !important;
+        height: 20pt !important;
+    }
+    .break-content {
+        color: #9a3412 !important;
+        font-size: 7.5pt !important;
+        letter-spacing: 1px !important;
+        justify-content: flex-start !important;
+        padding-left: 10pt !important;
+    }
+    .break-label { font-weight: bold !important; margin-right: 5pt !important; }
+    .break-duration { 
+        background-color: #ffedd5 !important;
+        border: 1px solid #fdba74 !important;
+        padding: 1pt 4pt !important;
+        border-radius: 4pt !important;
+        font-weight: bold !important;
+    }
+
+    /* Ocultar los "+" de edición en la impresión de forma definitiva */
+    tr { page-break-inside: avoid; }
+}
+
+/* --- DASHBOARD REAL-TIME --- */
+#dashboard-view {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto !important;
+    scrollbar-gutter: stable;
+}
+
+/* Aplicamos el estilo de scrollbar 'Calendario' al Dashboard */
+#dashboard-view::-webkit-scrollbar {
+    width: 12px;
+}
+
+#dashboard-view::-webkit-scrollbar-track {
+    background: #0f172a;
+    border-left: 1px solid var(--border);
+}
+
+#dashboard-view::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 10px;
+    border: 3px solid #0f172a;
+}
+
+#dashboard-view::-webkit-scrollbar-thumb:hover {
+    background: #818cf8;
+}
+
+/* Dashboard Timeline Header (Retro Clock & Weather) */
+.dashboard-header {
+    display: flex;
+    justify-content: flex-start; /* Alineado a la izquierda */
+    align-items: stretch; /* Misma altura para ambos widgets */
+    gap: 1.5rem;
+    padding: 0.5rem 0 1.5rem 1.5rem; /* Menos espacio superior */
+    flex-wrap: wrap; /* Permitir que se acomoden en pantallas chicas */
+}
+
+/* 24h Retro Digital Clock */
+.retro-clock-wrapper {
+    background: #0f172a;
+    padding: 10px;
+    border-radius: 12px;
+    border: 2px solid #1e293b;
+    box-shadow: 
+        inset 0 0 20px rgba(0,0,0,0.8),
+        0 10px 20px rgba(0,0,0,0.4);
+    display: flex;
+}
+
+.retro-clock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #020617; /* Fondo súper oscuro */
+    padding: 1rem 2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    min-width: 250px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.rc-time {
+    font-family: 'Courier New', Courier, monospace; /* Fuente retro por defecto, asumiendo Monospace */
+    font-size: 3.5rem;
+    font-weight: 900;
+    color: #4ade80; /* Verde terminal/radar */
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.5), 0 0 20px rgba(74, 222, 128, 0.3);
+    letter-spacing: 2px;
+    line-height: 1;
+}
+
+.rc-sec {
+    font-size: 1.5rem;
+    color: #22c55e;
+    opacity: 0.8;
+}
+
+.rc-date {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    margin-top: 0.5rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+/* Weather Widget */
+.weather-widget {
+    background: rgba(30, 41, 59, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem 2rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 250px; /* Mismo ancho que reloj */
+    box-sizing: border-box;
+}
+
+.ww-header {
+    font-size: 0.75rem;
+    color: #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 0.25rem;
+}
+
+.ww-body {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.ww-detail span {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* ----------------------------------------------------------------- */
+/* SMART ALERTS PANEL                                                */
+/* ----------------------------------------------------------------- */
+
+.smart-alerts-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 120px; /* Igualar o aproximar altura a los relojes */
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+}
+
+.smart-alerts-panel::-webkit-scrollbar {
+    width: 4px;
+}
+.smart-alerts-panel::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.3);
+    border-radius: 4px;
+}
+
+.sa-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.7);
+    border-left: 4px solid #334155;
+    animation: slideInDown 0.3s ease-out;
+}
+
+.sa-alert .sa-icon {
+    font-size: 1.2rem;
+}
+
+.sa-alert .sa-text {
+    font-size: 0.8rem;
+    color: #f1f5f9;
+    font-weight: 500;
+    line-height: 1.3;
+}
+
+.sa-content {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.sa-dismiss {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.2rem;
+    margin-left: 0.5rem;
+    transition: color 0.2s ease, transform 0.2s ease;
+    line-height: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.sa-dismiss:hover {
+    color: #ef4444;
+    transform: scale(1.1);
+}
+
+/* Tipos de Alerta */
+.sa-alert.empty {
+    border-left-color: #ef4444; /* Rojo para revisar cierres */
+    background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%);
+}
+
+.sa-alert.end-class {
+    border-left-color: #f59e0b; /* Naranja/Ambar fin de clase */
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%);
+}
+
+.sa-alert.start-class {
+    border-left-color: #3b82f6; /* Azul ingreso alumnos */
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%);
+}
+
+.sa-alert.break-soon {
+    border-left-color: #10b981; /* Verde esmeralda para recreos inminentes */
+    background: linear-gradient(90deg, rgba(16, 185, 129, 0.15) 0%, rgba(15, 23, 42, 0.7) 100%);
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+.ww-temp {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: white;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.ww-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.ww-error {
+    color: #ef4444;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.loading-mini {
+    color: #94a3b8;
+    font-size: 0.85rem;
+    animation: pulse 1.5s infinite;
+}
+
+.timeline-scale {
+    position: relative;
+    height: 40px; /* Aumentado para dar espacio a los números */
+    margin-bottom: 0.5rem;
+    margin-left: calc(1.5rem + 100px); /* Padding de la card (1.5rem) + ancho del label (100px) */
+    border-bottom: 2px solid #334155;
+}
+
+.scale-mark {
+    position: absolute;
+    top: 20px; /* La línea arranca más abajo para dejar hueco al texto */
+    bottom: 0;
+    width: 1px;
+    background: #334155;
+}
+
+.scale-mark.minor {
+    top: 28px;
+    background: #475569;
+}
+
+.scale-mark span {
+    position: absolute;
+    top: -20px; /* El texto se ubica justo encima de la línea */
+    left: -15px;
+    width: 30px;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #cbd5e1;
+    font-weight: 700;
+}
+
+.scale-mark.minor span {
+    font-size: 0.65rem;
+    color: #64748b;
+    top: -15px;
+    font-weight: 400;
+}
+
+.dashboard-timelines {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding-bottom: 2rem;
+}
+
+.timeline-card {
+    background: rgba(30, 41, 59, 1); /* Solid back to hide sliding elements perfectly */
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 1.5rem 0; /* Padding superior e inferior solamente */
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+    /* overflow: hidden; REMOVIDO PARA PERMITIR POSITION: STICKY EN HIJOS */
+}
+
+.timeline-depto-title {
+    font-size: 1.25rem;
+    color: white;
+    font-weight: 800;
+    letter-spacing: 1px;
+    margin: 0;
+    padding-bottom: 0.5rem;
+    padding-left: 1.5rem; /* El padding que quitamos a la tarjeta */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    
+    /* Sticky title */
+    position: sticky;
+    left: 0;
+    width: max-content; /* Se ajusta solo a su texto, permitiendo ver el fondo */
+    background: rgba(30, 41, 59, 1); /* Solid para ocultar info pasando por detrás */
+    z-index: 12;
+}
+
+/* Wrapper global para scroll horizontal que sincroniza cabecera y tarjetas */
+.timeline-global-scroll {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    scrollbar-width: none; /* Firefox */
+}
+.timeline-global-scroll::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+/* Contenedor interno que fuerza un ancho mínimo para extender la línea de tiempo */
+.timeline-wrapper-inner {
+    width: 2400px; /* 15 horas a 160px c/u aprox, excelente legibilidad */
+    min-width: 2400px; 
+    display: flex;
+    flex-direction: column;
+    gap: 3rem; /* Separación marcada entre departamentos */
+    padding: 0 50vw; /* El espacio vital para el centrado infinito de bordes */
+    box-sizing: content-box;
+}
+
+.timeline-container {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+/* Transversal Global Current Time Line */
+.global-fixed-cursor {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%); /* Centrado exacto por píxel */
+    top: 0;
+    bottom: 0px; 
+    width: 2px;
+    background: #ef4444; /* Rojo vibrante */
+    z-index: 100;
+    pointer-events: none;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
+.global-fixed-cursor::before {
+    content: '';
+    position: absolute;
+    top: 25px; /* Adjust according to timeline scale top */
+    left: -4px;
+    width: 10px;
+    height: 10px;
+    background: #ef4444;
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.8);
+}
+
+.cursor-time-bubble {
+    position: absolute;
+    top: -5px;
+    left: -20px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    pointer-events: auto; /* Permite detectar el ratón a pesar del padre */
+    cursor: help;
+}
+
+.timeline-track {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    background: rgba(15, 23, 42, 0.5);
+    border-radius: 8px;
+    position: relative;
+    border: 1px solid rgba(255,255,255,0.05);
+}
+
+.track-label {
+    width: calc(100px + 1.5rem); /* Extendemos para cubrir el antiguo padding de timeline-card */
+    min-width: calc(100px + 1.5rem);
+    padding: 0 10px 0 1.5rem;
+    font-weight: 800;
+    color: #f97316; /* Color naranja vibrante para aulas */
+    font-size: 0.85rem;
+    border-right: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    height: 100%;
+    
+    /* Configuración Sticky para aulas que tapa el rastro de la información */
+    box-sizing: border-box; 
+    position: sticky;
+    left: 0; 
+    background: rgba(30, 41, 59, 1); /* Sólido puro coincidente */
+    z-index: 10;
+}
+
+.track-content {
+    position: relative;
+    flex: 1;
+    height: 100%;
+    background: repeating-linear-gradient(
+        to right,
+        transparent,
+        transparent calc((100% / 15) - 1px), /* 15 hours from 7 to 22 */
+        rgba(255,255,255,0.02) calc((100% / 15) - 1px),
+        rgba(255,255,255,0.02) calc(100% / 15)
+    );
+}
+
+.time-block {
+    position: absolute;
+    top: 4px;
+    bottom: 4px;
+    border-radius: 6px;
+    padding: 2px 6px; /* Padding más compacto */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-sizing: border-box; /* CRUCIAL: evita que el padding sume al width original */
+}
+
+/* Reglas comunes de ellipsis para el texto interno del bloque */
+.time-block > div {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    width: 100%;
+}
+
+.block-class {
+    background: rgba(99, 102, 241, 0.2);
+    border-left: 3px solid var(--primary);
+}
+
+.block-break {
+    background: repeating-linear-gradient(
+        45deg,
+        rgba(245, 158, 11, 0.1),
+        rgba(245, 158, 11, 0.1) 10px,
+        rgba(245, 158, 11, 0.2) 10px,
+        rgba(245, 158, 11, 0.2) 20px
+    );
+    border: 1px dashed rgba(245, 158, 11, 0.5);
+}
+
+.tb-head {
+    font-size: 0.85rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.tb-body {
+    font-size: 0.75rem;
+    color: white;
+}
+
+.tb-time {
+    font-size: 0.65rem;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+/* ----------------------------------------------------------------- */
+/* REAL-TIME GLASSMORPHISM SUMMARY BALLOON                           */
+/* ----------------------------------------------------------------- */
+.glass-balloon {
+    position: absolute;
+    top: -10px; /* Alineado a la altura de la burbuja */
+    transform: translateX(35px); /* Desplazado a la derecha de la aguja */
+    width: 320px;
+    background: rgba(15, 23, 42, 0.45); /* Base ultra oscura y transparente */
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 1.5rem;
+    z-index: 9999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none; /* Que no interrumpa el hover */
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.glass-balloon.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(25px); /* Efecto de acercamiento lateral */
+}
+
+/* Indicador de flecha en el globo hacia el cursor */
+.glass-balloon::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 20px; /* Alineado en la zona superior donde está la burbuja */
+    transform: translateY(-50%);
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 8px solid rgba(255, 255, 255, 0.2); 
+    backdrop-filter: blur(4px);
+}
+
+.gb-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.gb-header-title {
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 800;
+}
+
+.gb-header-icon {
+    font-size: 1.2rem;
+    animation: pulse 2s infinite;
+}
+
+.gb-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 400px; /* Prevenir desbordamiento extremo */
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.5) transparent;
+}
+
+.gb-content::-webkit-scrollbar {
+    width: 4px;
+}
+.gb-content::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.5);
+    border-radius: 4px;
+}
+
+.gb-item {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem;
+    border-left: 3px solid #6366f1; /* Color clase activo */
+}
+
+.gb-item.recreo {
+    border-left-color: #f59e0b; /* Color recreo */
+}
+
+.gb-item-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 0.25rem;
+}
+
+.gb-item-subtitle {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    display: flex;
+    justify-content: space-between;
+}
+
+.gb-empty {
+    text-align: center;
+    color: #64748b;
+    font-size: 0.85rem;
+    font-style: italic;
+    padding: 1rem 0;
+}
+
+/* ----------------------------------------------------------------- */
+/* MÓDULO DE REPORTES                                                */
+/* ----------------------------------------------------------------- */
+
+#reportes-view {
+    overflow-y: visible; /* Permite que el contenedor view crezca y force el scroll global */
+    height: max-content;
+}
+
+.reports-header {
+    background: linear-gradient(135deg, rgba(30,41,59,0.9), rgba(15,23,42,0.95));
+    border-radius: 12px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.reports-header h2 {
+    color: #f8fafc;
+    margin-bottom: 0.5rem;
+    font-size: 1.5rem;
+}
+
+.reports-subtitle {
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.reports-controls {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    background: #1e293b;
+    padding: 1.5rem;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.reports-form-group {
+    flex: 1;
+    min-width: 250px;
+}
+
+.reports-container {
+    animation: fadeIn 0.4s ease-out;
+}
+
+.report-metric-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+}
+
+.metric-card {
+    background: rgba(30, 41, 59, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.metric-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.5);
+}
+
+/* Colores de Tarjetas Métricas */
+.metric-card.primary { border-top: 4px solid var(--primary); }
+.metric-card.acc-time { border-top: 4px solid #ef4444; }
+.metric-card.depts { border-top: 4px solid #f59e0b; }
+.metric-card.staff { border-top: 4px solid #10b981; }
+.metric-card.users { border-top: 4px solid #8b5cf6; }
+
+.mc-icon {
+    font-size: 2.5rem;
+    opacity: 0.9;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+
+.mc-data small {
+    display: block;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.4rem;
+}
+
+.mc-data h3 {
+    color: #f1f5f9;
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0;
+}
+
+.report-section-title {
+    color: #cbd5e1;
+    font-size: 1.15rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.report-list-container {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.badge-time {
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* ----------------------------------------------------------------- */
+/* IMPRESIÓN Y EXPORTACIÓN A PDF (ALTO CONTRASTE)                    */
+/* ----------------------------------------------------------------- */
+@media print {
+    body, #content, .view, #view-container, .reports-container, .report-list-container, .metric-card {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+        border: none !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    .reports-header, .reports-controls, #top-bar, #sidebar, .btn-primary, .btn-secondary, .btn-icon, .filter-group {
+        display: none !important; /* Ocultar UI que no suma al PDF */
+    }
+
+    .report-metric-cards {
+        display: flex !important;
+        gap: 1rem !important;
+        border-bottom: 2px solid #000;
+        padding-bottom: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .metric-card {
+        padding: 0.5rem !important;
+        border: 1px solid #ccc !important;
+    }
+
+    .mc-data h3 {
+        color: black !important;
+    }
+
+    .mc-data small {
+        color: #333 !important;
+    }
+
+    .data-table {
+        border-collapse: collapse !important;
+        width: 100% !important;
+    }
+
+    .data-table th, .data-table td {
+        border: 1px solid #ccc !important;
+        color: black !important;
+        background: white !important;
+        padding: 8px !important;
+    }
+
+    .data-table th {
+        background: #f1f5f9 !important;
+        font-weight: bold !important;
+        color: #000 !important;
+    }
+
+    .badge-time {
+        border: none !important;
+        background: none !important;
+        color: black !important;
+        font-weight: normal !important;
+        padding: 0 !important;
+    }
+
+    h2, h3, h4, .report-section-title {
+        color: black !important;
+        border-color: #000 !important;
+    }
+}
+
+/* ----------------------------------------------------------------- */
+/* MÓDULO DE CALENDARIO ACADÉMICO (PREMIUM GLASSMORPISM)             */
+/* ----------------------------------------------------------------- */
+
+.calendario-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+}
+
+.cal-title-box {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.cal-year-badge {
+    background: var(--primary);
+    color: white;
+    padding: 0.5rem 1.2rem;
+    border-radius: 99px;
+    font-weight: 800;
+    font-size: 1.2rem;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+}
+
+.cal-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.year-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(15, 23, 42, 0.5);
+    padding: 0.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.year-selector button {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.year-selector button:hover {
+    background: var(--primary);
+}
+
+.calendario-main-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 2rem;
+}
+
+.cal-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.cal-grid-container.monthly-mode {
+    grid-template-columns: 1fr;
+}
+
+/* Tarjetas de Mes */
+.mcard {
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mcard:hover {
+    transform: translateY(-5px) scale(1.02);
+    border-color: var(--primary);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.mname {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: white;
+    margin-bottom: 1.25rem;
+    border-left: 4px solid var(--primary);
+    padding-left: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Grilla de Días Anual */
+.dcont-annual {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 4px;
+}
+
+.dcont-annual .dlbl {
+    font-size: 0.6rem;
+    color: #64748b;
+    text-align: center;
+    padding-bottom: 4px;
+}
+
+.dcont-annual .dcell {
+    aspect-ratio: 1/1;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Vista Mensual Premium */
+.mcard.single-month {
+    padding: 2.5rem;
+}
+
+.dcont-monthly {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.month-header-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1rem;
+}
+
+.month-header-grid .dlbl {
+    text-align: center;
+    font-weight: 800;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.month-days-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-auto-rows: 120px;
+    gap: 1rem;
+}
+
+.month-days-grid .dcell {
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+    transition: all 0.2s ease;
+    cursor: cell;
+}
+
+.month-days-grid .dcell:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    transform: scale(1.02);
+    z-index: 10;
+}
+
+.month-days-grid .dcell.today {
+    border: 2px solid var(--primary);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.3);
+}
+
+.month-days-grid .dcell.selected {
+    border: 2px solid #10b981 !important;
+    background: rgba(16, 185, 129, 0.1) !important;
+}
+
+.dnum {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #f8fafc;
+}
+
+.dstack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+}
+
+.dtxt {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+}
+
+/* Sidebar - Referencias y Notas */
+.cal-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.categories-box h3, .cork-board h3 {
+    font-size: 1rem;
+    margin-bottom: 1.25rem;
+    color: #cbd5e1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.cat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.cat-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    flex-shrink: 0;
+}
+
+.cat-name {
+    font-size: 0.85rem;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+/* Tablero de Notas Neón */
+.cork-board {
+    background: rgba(15, 23, 42, 0.3);
+    min-height: 400px;
+}
+
+.cork-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.btn-icon-add {
+    background: var(--primary);
+    color: white;
+    border: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.sticky-notes-container {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.sticky-note {
+    padding: 1rem;
+    border-radius: 4px;
+    box-shadow: 4px 4px 15px rgba(0, 0, 0, 0.3);
+    position: relative;
+    transform: rotate(1deg);
+    transition: transform 0.2s ease;
+}
+
+.sticky-note:nth-child(even) { transform: rotate(-1.5deg); }
+
+.sticky-note:hover {
+    transform: rotate(0) scale(1.05);
+    z-index: 5;
+}
+
+.sticky-note::after {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 8px;
+    height: 8px;
+    background: #ef4444;
+    border-radius: 50%;
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+}
+
+.note-content {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    color: #1e293b;
+    font-weight: 600;
+    line-height: 1.4;
+    word-break: break-all;
+}
+
+.note-del {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: transparent;
+    border: none;
+    font-size: 1rem;
+    cursor: pointer;
+    color: rgba(0,0,0,0.3);
+}
+
+/* Modal de Calendario */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.modal-overlay.active { display: flex; }
+
+.cal-modal {
+    width: 400px;
+    padding: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.modal-cat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.modal-cat-btn {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.modal-cat-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+.modal-desc-box textarea {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem;
+    color: white;
+    font-family: inherit;
+    resize: none;
+    height: 80px;
+    margin-top: 0.5rem;
+}
+
+.workload-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(99, 102, 241, 0.2);
+    color: #818cf8;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+    min-width: 32px;
+    text-align: center;
+    border: 1px solid rgba(129, 140, 248, 0.3);
+    backdrop-filter: blur(4px);
+    pointer-events: auto;
+}
+
+.ddot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin: 1px;
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
+}
+
+.cal-grid-container:not(.monthly-mode) .dcell {
+    height: 55px !important;
+    padding: 2px !important;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.cal-grid-container:not(.monthly-mode) .dstack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    justify-content: center;
+    max-height: 15px;
+    overflow: hidden;
+}
+
+.cal-grid-container:not(.monthly-mode) .dnum {
+    font-size: 0.8rem !important;
+}
+
+.cal-grid-container.monthly-mode .dcell {
+    height: 15vh !important;
+    min-height: 100px;
+    overflow: hidden;
+    position: relative;
+    padding: 8px !important;
+}
+
+.cal-grid-container.monthly-mode .dstack {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 25px; /* Espacio para el número y badge */
+}
+
+.dtxt {
+    font-size: 0.75rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    cursor: help;
+    transition: background 0.2s ease;
+}
+
+.dtxt:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Tooltip estalizado para el calendario */
+.cal-tooltip {
+    position: fixed;
+    z-index: 1000;
+    max-width: 300px;
+    max-height: 200px;
+    overflow-y: auto;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    color: white;
+    font-size: 0.85rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.cal-tooltip.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.cal-tooltip h4 {
+    margin: 0 0 8px 0;
+    color: #818cf8;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 4px;
+}
+
+.dcell.selected {
+    outline: 2px solid #6366f1 !important;
+    outline-offset: -2px;
+    background: rgba(99, 102, 241, 0.2) !important;
+    box-shadow: inset 0 0 10px rgba(99, 102, 241, 0.3), 0 0 15px rgba(99, 102, 241, 0.4);
+    z-index: 5;
+    position: relative;
+}
+
+.workload-legend {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.workload-legend .workload-badge {
+    position: static;
+    display: inline-block;
+}
+
+.workload-legend small {
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.2;
+}
+
+/* --- PULIDO RELOJ RETRO --- */
+#rc-date {
+    transition: all 0.3s ease;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+}
+
+#rc-date:hover {
+    color: #818cf8 !important; /* Indigo suave */
+    border-color: #6366f1 !important; /* Indigo más intenso */
+    background: rgba(99, 102, 241, 0.1);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.2);
+}
+
+/* --- PULIDO NOMBRES DE MESES (CALENDARIO ANUAL) --- */
+.mname-link {
+    cursor: pointer;
+    display: inline-block;
+    padding: 0 10px;
+    border-radius: 6px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.mname-link::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 0;
+    height: 2px;
+    background: #6366f1;
+    transition: all 0.3s ease;
+    transform: translateX(-50%);
+}
+
+.mname-link:hover {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8 !important;
+    outline: 1px solid rgba(99, 102, 241, 0.4);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.mname-link:hover::after {
+    width: 80%;
+}
+
+.mname-link:active {
+    transform: scale(0.95);
+}
+
+.mcard .mname {
+    margin: 0;
+    border-left: none !important; /* Quitar el borde rígido en annual si se desea, o integrarlo */
+}
+
+/* ----------------------------------------------------------------- */
+/* MODO EXPORTACIÓN PDF (ALTO CONTRASTE)                             */
+/* ----------------------------------------------------------------- */
+
+.cal-pdf-mode {
+    background: white !important;
+    color: black !important;
+    padding: 20px !important;
+}
+
+.cal-pdf-mode .mcard, 
+.cal-pdf-mode .glass-card {
+    background: white !important;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+.cal-pdf-mode .mname,
+.cal-pdf-mode .dnum,
+.cal-pdf-mode .dlbl,
+.cal-pdf-mode .premium-title,
+.cal-pdf-mode .cal-year-badge {
+    color: black !important;
+}
+
+.cal-pdf-mode .dcell {
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+}
+
+.cal-pdf-mode .dcell.empty {
+    background: white !important;
+    border: none !important;
+}
+
+.cal-pdf-mode .dtxt {
+    background: rgba(0, 0, 0, 0.05) !important;
+    color: #1a1a1a !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    font-weight: bold !important;
+}
+
+.cal-pdf-mode .mname {
+    border-left: 5px solid black !important;
+}
+
+.cal-pdf-mode .workload-badge {
+    background: white !important;
+    border: 1px solid black !important;
+    color: black !important;
 }

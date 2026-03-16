@@ -1,36 +1,31 @@
-# Script para poblar el usuario admin inicial en PostgreSQL
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from main import Usuario, Base
-import datetime
-
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://horarios_user:horarios123@localhost/horarios")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from database import engine, SessionLocal
+import models
+import auth_utils
 
 def seed():
     # Crear tablas si no existen
-    Base.metadata.create_all(bind=engine)
+    models.Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     
     # Verificar si el admin ya existe
-    admin = db.query(Usuario).filter(Usuario.username == "admin").first()
+    admin = db.query(models.Usuario).filter(models.Usuario.username == "admin").first()
     if not admin:
         print("Creando usuario administrador inicial...")
-        new_admin = Usuario(
+        new_admin = models.Usuario(
             username="admin",
-            password_hash="PENDIENTE_BCRYPT", # Se actualizará luego
+            password_hash=auth_utils.get_password_hash("admin123"),
             rol="admin",
             activo=1
         )
         db.add(new_admin)
         db.commit()
-        print("Admin creado con éxito.")
+        print("Admin creado con éxito: admin / admin123")
     else:
-        print("El usuario admin ya existe.")
+        # Actualizar password para asegurar que el hash sea correcto
+        admin.password_hash = auth_utils.get_password_hash("admin123")
+        db.commit()
+        print("Password de admin sincronizada.")
     db.close()
 
 if __name__ == "__main__":
     seed()
- Aurora:

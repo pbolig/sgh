@@ -9,6 +9,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- PDF Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -40,15 +43,19 @@
             <aside id="sidebar">
                 <div class="sidebar-header">
                     <div class="logo">SGH</div>
+                    <button id="sidebar-toggle" class="btn-toggle">❮</button>
                 </div>
                 <nav id="main-nav">
                     <ul>
-                        <li class="active"><a href="#" data-route="dashboard">Dashboard</a></li>
-                        <li><a href="#" data-route="editor">Editor de Horarios</a></li>
-                        <li><a href="#" data-route="docentes">Docentes</a></li>
-                        <li><a href="#" data-route="departamentos">Departamentos</a></li>
-                        <li><a href="#" data-route="comisiones">Comisiones</a></li>
-                        <li><a href="#" data-route="reportes">Reportes</a></li>
+                        <li class="active"><a href="#" data-route="dashboard">📊 <span>Dashboard</span></a></li>
+                        <li><a href="#" data-route="editor">🗓️ <span>Editor de Horarios</span></a></li>
+                        <li><a href="#" data-route="docentes">👨‍🏫 <span>Docentes</span></a></li>
+                        <li><a href="#" data-route="departamentos">🏛️ <span>Departamentos</span></a></li>
+                        <li><a href="#" data-route="materias">📚 <span>Materias</span></a></li>
+                        <li><a href="#" data-route="aulas">🏫 <span>Aulas</span></a></li>
+                        <li><a href="#" data-route="comisiones">👥 <span>Comisiones</span></a></li>
+                        <li><a href="#" data-route="reportes">📈 <span>Reportes</span></a></li>
+                        <li><a href="#" data-route="calendario">📅 <span>Calendario</span></a></li>
                     </ul>
                 </nav>
                 <div class="sidebar-footer">
@@ -60,7 +67,10 @@
             </aside>
             <main id="content">
                 <header id="top-bar">
-                    <h2 id="page-title">Dashboard</h2>
+                    <div class="header-main">
+                        <button id="header-toggle" class="btn-toggle-mini">↕</button>
+                        <h2 id="page-title">Dashboard</h2>
+                    </div>
                     <div class="header-actions">
                         <select id="dept-selector" class="select-modern">
                             <!-- Opciones cargadas dinámicamente -->

@@ -12,6 +12,7 @@ Bienvenido al centro de control del Sistema de Horarios. Este documento detalla 
 4.  [**Ambiente de Producción (VM Debian Nativo)**](#4-produccion-vm)
 5.  [**Base de Datos (PostgreSQL)**](#5-postgresql)
 6.  [**Backups y Recuperación**](#6-backups)
+7.  [**Funcionalidades Avanzadas (Dashboard y Reportes)**](#7-avanzado)
 
 ---
 
@@ -38,29 +39,25 @@ Este ambiente emula toda la infraestructura necesaria (Nginx, Backend, DB) en co
     ```bash
     docker-compose up --build -d
     ```
-    - `--build`: Reconstruye el backend si has hecho cambios en el código.
-    - `-d`: Corre en segundo plano.
-3.  **Acceso:**
+3.  **Inicialización de BD y Admin:**
+    Ejecuta el script de semilla para crear el usuario admin inicial:
+    ```bash
+    docker exec sgh-backend python seed_admin.py
+    ```
+    - **Credenciales por defecto:** `admin` / `admin123`
+4.  **Acceso:**
     - Sistema: [http://localhost](http://localhost)
     - Documentación: [http://localhost/docs/](http://localhost/docs/)
-
-#### Ver logs del backend:
-```bash
-docker logs -f sgh-backend
-```
 
 ---
 
 <div id="3-git-workflow"></div>
 
-### 3. Control de Versiones (Git)
-Utilizamos Git para mantener un historial de cambios y transferir el código al servidor.
-
-#### Flujo de Código:
-1.  **Desarrollar y probar en local** (Docker).
-2.  `git add .` -> `git commit -m "Descripción del cambio"`.
-3.  `git push origin main`.
-4.  **En la VM Debian:** Entrar a la carpeta y ejecutar `git pull` para recibir la última versión estable.
+### 3. Seguridad y Autenticación
+El sistema utiliza estándares modernos de seguridad:
+- **Hashing:** Las contraseñas se guardan hasheadas con **Bcrypt** (algoritmo lento y seguro contra ataques de fuerza bruta).
+- **Tokens JWT:** Una vez logueado, el servidor entrega un token JWT (JSON Web Token) que el navegador usa para identificarse en cada petición posterior. El token expira cada 8 horas.
+- **Backend:** Desarrollado con **FastAPI**, que valida automáticamente los tipos de datos y la seguridad de los tokens.
 
 ---
 
@@ -103,15 +100,24 @@ sudo -u postgres psql -d horarios
 
 <div id="6-backups"></div>
 
-### 6. Backups y Recuperación
-#### Automatización:
-El script `distsrv/backup.sh` se encarga de todo. En la VM, se ejecuta cada vez que el sistema arranca.
--   **Ubicación:** `/home/horarios/backups/`.
--   **Formato:** `backup_horarios_FECHA.tar.gz`.
+<div id="7-avanzado"></div>
 
-#### Cómo restaurar en VM:
-1.  Extraer el dump: `tar -xzf backup.tar.gz`.
-2.  Restaurar SQL: `sudo -u postgres psql horarios < backup_interno.sql`.
+### 7. Funcionalidades Avanzadas y UI
+El sistema ha sido evolucionado con capacidades de monitoreo y reportes de nivel profesional.
+
+#### 7.1 Dashboard en Tiempo Real
+- **Relojes Analógicos:** Sincronizados con la hora real del navegador.
+- **Estado de Aulas:** Visualización en vivo de materias, docentes y tiempo restante.
+- **Sistema de Sirenas:** Los recreos se indican mediante una "alarma visual" naranja pulsante en la tarjeta del departamento.
+
+#### 7.2 Editor de Horarios e Inteligencia de Datos
+- **Recreos Automáticos:** El sistema detecta huecos entre módulos y genera filas de "RECREO" con duración calculada automáticamente.
+- **Ordenamiento Inteligente:** Las listas se autogestionan alfabéticamente (por apellido en docentes, por nombre en materias).
+- **Layout Adaptativo:** Interfaz colapsable con scroll vertical infinito soportado por una jerarquía de contenedores flexbox robusta.
+
+#### 7.3 Reportes y PDF
+- **Alta Legibilidad:** Estilos CSS específicos para impresión (`@media print`) que garantizan contraste total en nombres de docentes y ocultan elementos de edición.
+- **Formato Limpio:** Las celdas vacías se exportan sin símbolos de edición, manteniendo una estética profesional.
 
 ---
-*Manual actualizado al 12/03/2026 - Flujo Híbrido Implementado.*
+*Manual actualizado al 13/03/2026 - Dashboard y Sistema de Recreos Implementado.*
