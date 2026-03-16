@@ -478,101 +478,191 @@ export const Calendario = {
         btn.disabled = true;
 
         const el = document.getElementById('calendario-container');
-        el.classList.add('cal-pdf-mode');
+        const isAnnual = this.currentView === 'annual';
+        const captureTarget = isAnnual ? el : el.querySelector('.single-month');
         
-        // Esperar renderizado de modo PDF
-        await new Promise(resolve => setTimeout(resolve, 300));
+        el.classList.add('cal-pdf-mode');
+        await new Promise(resolve => setTimeout(resolve, 400));
 
         try {
             const { jsPDF } = window.jspdf;
-            const pdf = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+            const orientation = isAnnual ? 'p' : 'l';
+            const pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: 'a4' });
+            
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
+            const margin = 10; // 1cm margin
+            const printableWidth = pageWidth - (margin * 2);
+            const printableHeight = pageHeight - (margin * 2);
 
             // --- HOJA 1: RESUMEN VISUAL ---
-            const canvas = await html2canvas(el, {
-                scale: 2,
+            const canvas = await html2canvas(captureTarget, {
+                scale: 2.5,
                 useCORS: true,
                 backgroundColor: '#ffffff',
                 logging: false,
-                windowWidth: el.scrollWidth,
-                windowHeight: el.scrollHeight
+                onclone: (clonedDoc) => {
+                    const container = clonedDoc.getElementById('calendario-container');
+                    const mainLayout = clonedDoc.querySelector('.calendario-main-layout');
+                    const grid = clonedDoc.getElementById('calendario-grid');
+                    const sidebar = clonedDoc.querySelector('.cal-sidebar');
+                    const yearSelector = clonedDoc.querySelector('.year-selector');
+                    const exportBtn = clonedDoc.querySelector('.btn-export');
+                    
+                    if (container) {
+                        if (isAnnual) {
+                            // --- AJUSTES VISTA ANUAL (VERTICAL) ---
+                            if (sidebar) sidebar.style.display = 'none';
+                            if (yearSelector) yearSelector.style.display = 'none';
+                            if (exportBtn) exportBtn.style.display = 'none';
+                            
+                            if (mainLayout) {
+                                mainLayout.style.display = 'block'; 
+                                mainLayout.style.width = '950px';
+                            }
+                            
+                            if (grid) {
+                                grid.style.display = 'grid';
+                                grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                                grid.style.gap = '10px'; // Gap más compacto
+                                grid.style.width = '950px';
+                            }
+
+                            // Compactamos tarjetas de mes
+                            clonedDoc.querySelectorAll('.mcard').forEach(mc => {
+                                mc.style.padding = '10px';
+                                mc.style.border = '1px solid #eee';
+                            });
+                            
+                            container.style.width = '1000px';
+                            container.style.height = 'auto'; // Permitir que crezca para capturar todo
+                        } else {
+                            // --- AJUSTES VISTA MENSUAL (APAISADA) ---
+                            const target = clonedDoc.querySelector('.single-month');
+                            if (target) {
+                                target.style.width = '1458px'; 
+                                target.style.height = '1000px';
+                                target.style.margin = '0';
+                                target.style.padding = '20px';
+                            }
+                        }
+                        container.style.background = 'white';
+                        container.style.boxShadow = 'none';
+                        container.style.padding = '20px';
+                    }
+                }
             });
 
             const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const canvasRatio = canvas.width / canvas.height;
-            let finalWidth = pageWidth;
-            let finalHeight = pageWidth / canvasRatio;
+            
+            let finalWidth = printableWidth;
+            let finalHeight = printableWidth / canvasRatio;
 
-            if (finalHeight > pageHeight) {
-                finalHeight = pageHeight;
-                finalWidth = pageHeight * canvasRatio;
+            if (finalHeight > printableHeight) {
+                finalHeight = printableHeight;
+                finalWidth = printableHeight * canvasRatio;
             }
 
-            pdf.addImage(imgData, 'JPEG', 0, 0, finalWidth, finalHeight);
+            const xOffset = margin + (printableWidth - finalWidth) / 2;
+            const yOffset = margin + (printableHeight - finalHeight) / 2;
 
-            // --- HOJA 2+: DETALLE (Solo en vista mensual) ---
-            if (this.currentView === 'monthly') {
-                const eventsThisMonth = [];
-                const daysInMonth = new Date(this.currentYear, this.selectedMonthIdx + 1, 0).getDate();
-                
-                for (let d = 1; d <= daysInMonth; d++) {
-                    const key = `${this.currentYear}-${String(this.selectedMonthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            pdf.addImage(imgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
+
+            // --- HOJA 2+: DETALLES CRONOLÓGICOS ---
+            const chronologicalEvents = [];
+            if (isAnnual) {
+                // Todos los eventos del año
+                for (let m = 0; m < 12; m++) {
+                    const days = new Date(this.currentYear, m + 1, 0).getDate();
+                    for (let d = 1; d <= days; d++) {
+                        const key = `${this.currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                        if (this.db.events[key]) {
+                            this.db.events[key].forEach(ev => {
+                                chronologicalEvents.push({ 
+                                    label: `${d} ${this.getMonthName(m)}`, 
+                                    cat: ev.categoria.nombre, 
+                                    desc: ev.descripcion || '-' 
+                                });
+                            });
+                        }
+                    }
+                }
+            } else {
+                // Solo el mes seleccionado
+                const m = this.selectedMonthIdx;
+                const days = new Date(this.currentYear, m + 1, 0).getDate();
+                for (let d = 1; d <= days; d++) {
+                    const key = `${this.currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                     if (this.db.events[key]) {
                         this.db.events[key].forEach(ev => {
-                            eventsThisMonth.push({ dia: d, cat: ev.categoria.nombre, desc: ev.descripcion || '-' });
+                            chronologicalEvents.push({ 
+                                label: `${d} ${this.getMonthName(m)}`, 
+                                cat: ev.categoria.nombre, 
+                                desc: ev.descripcion || '-' 
+                            });
                         });
                     }
                 }
-
-                if (eventsThisMonth.length > 0) {
-                    pdf.addPage('l', 'a4');
-                    pdf.setFontSize(18);
-                    pdf.setTextColor(40);
-                    pdf.text(`Resumen Detallado: ${this.getMonthName(this.selectedMonthIdx)} ${this.currentYear}`, 15, 20);
-                    
-                    pdf.setFontSize(10);
-                    let y = 35;
-
-                    // Cabecera Tabla
-                    pdf.setFont("helvetica", "bold");
-                    pdf.setFillColor(240, 240, 240);
-                    pdf.rect(15, y - 5, 265, 7, 'F');
-                    pdf.text("DÍA", 17, y);
-                    pdf.text("CATEGORÍA", 35, y);
-                    pdf.text("DETALLE COMPLETO DEL EVENTO", 85, y);
-                    
-                    y += 10;
-                    pdf.setFont("helvetica", "normal");
-
-                    eventsThisMonth.forEach(ev => {
-                        const splitDesc = pdf.splitTextToSize(ev.desc, 190);
-                        const rowHeight = (splitDesc.length * 5) + 4;
-
-                        if (y + rowHeight > pageHeight - 20) {
-                            pdf.addPage('l', 'a4');
-                            y = 25;
-                            // Repetir cabecera si es necesario
-                        }
-
-                        // Línea divisoria suave
-                        pdf.setDrawColor(220, 220, 220);
-                        pdf.line(15, y - 5, 280, y - 5);
-
-                        pdf.text(ev.dia.toString(), 17, y);
-                        pdf.text(ev.cat, 35, y);
-                        pdf.text(splitDesc, 85, y);
-
-                        y += rowHeight;
-                    });
-                }
             }
 
-            pdf.save(`Planificacion_${this.getMonthName(this.selectedMonthIdx)}_${this.currentYear}.pdf`);
+            if (chronologicalEvents.length > 0) {
+                pdf.addPage(orientation, 'a4');
+                pdf.setFontSize(16);
+                pdf.setTextColor(40);
+                const titleText = isAnnual ? `Planificación Anual ${this.currentYear}` : `Detalle: ${this.getMonthName(this.selectedMonthIdx)} ${this.currentYear}`;
+                pdf.text(titleText, margin, margin + 10);
+                
+                pdf.setFontSize(10);
+                let y = margin + 25;
+
+                // Cabecera Tabla
+                pdf.setFont("helvetica", "bold");
+                pdf.setFillColor(240, 240, 240);
+                pdf.rect(margin, y - 5, printableWidth, 7, 'F');
+                pdf.text("FECHA", margin + 2, y);
+                pdf.text("CATEGORÍA", margin + 35, y);
+                pdf.text("DETALLE DEL EVENTO", margin + 85, y);
+                
+                y += 10;
+                pdf.setFont("helvetica", "normal");
+
+                chronologicalEvents.forEach(ev => {
+                    const splitDesc = pdf.splitTextToSize(ev.desc, printableWidth - 90);
+                    const rowHeight = (splitDesc.length * 5) + 4;
+
+                    if (y + rowHeight > pageHeight - margin - 5) {
+                        pdf.addPage(orientation, 'a4');
+                        y = margin + 15;
+                        
+                        // Repetir cabecera en nueva página
+                        pdf.setFont("helvetica", "bold");
+                        pdf.setFillColor(240, 240, 240);
+                        pdf.rect(margin, y - 5, printableWidth, 7, 'F');
+                        pdf.text("FECHA", margin + 2, y);
+                        pdf.text("CATEGORÍA", margin + 35, y);
+                        pdf.text("DETALLE DEL EVENTO", margin + 85, y);
+                        y += 10;
+                        pdf.setFont("helvetica", "normal");
+                    }
+
+                    pdf.setDrawColor(220, 220, 220);
+                    pdf.line(margin, y - 5, pageWidth - margin, y - 5);
+
+                    pdf.text(ev.label, margin + 2, y);
+                    pdf.text(ev.cat, margin + 35, y);
+                    pdf.text(splitDesc, margin + 85, y);
+
+                    y += rowHeight;
+                });
+            }
+
+            const fileName = isAnnual ? `Planificacion_${this.currentYear}.pdf` : `Planificacion_${this.getMonthName(this.selectedMonthIdx)}_${this.currentYear}.pdf`;
+            pdf.save(fileName);
 
         } catch (error) {
             console.error("PDF Export Error:", error);
-            alert("Error al generar el PDF detallado.");
+            alert("Error al generar el PDF. Verifica que html2canvas y jsPDF estén cargados.");
         } finally {
             el.classList.remove('cal-pdf-mode');
             btn.innerHTML = originalText;

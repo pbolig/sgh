@@ -2541,6 +2541,19 @@ textarea:focus {
 .cal-pdf-mode .dcell {
     background: #f9fafb !important;
     border: 1px solid #e5e7eb !important;
+    height: auto !important; /* Permitir que monthly-mode o annual-mode decidan */
+}
+
+.cal-pdf-mode .cal-grid-container.monthly-mode .dcell {
+    height: 130px !important; /* Altura fija para PDF */
+    width: auto !important;
+}
+
+.cal-pdf-mode .single-month {
+    width: 100% !important;
+    max-width: none !important;
+    background: white !important;
+    padding: 20px !important;
 }
 
 .cal-pdf-mode .dcell.empty {
