@@ -252,7 +252,7 @@ select option {
 }
 
 #sidebar.collapsed #main-nav {
-    padding: 0 0.5rem;
+    padding: 0;
 }
 
 #main-nav ul {
@@ -281,8 +281,10 @@ select option {
 
 #sidebar.collapsed #main-nav a {
     padding: 0.75rem 0;
-    text-align: center;
-    font-size: 1.2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.25rem;
 }
 
 #sidebar.collapsed #main-nav span {

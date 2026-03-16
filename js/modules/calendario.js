@@ -539,11 +539,19 @@ export const Calendario = {
                             container.style.height = 'auto';
                         } else {
                             // --- AJUSTES VISTA MENSUAL (APAISADA) ---
+                            // COLAPSAR EL LAYOUT DE 2 COLUMNAS A 1
+                            const mainLayout = clonedDoc.querySelector('.calendario-main-layout');
+                            if (mainLayout) {
+                                mainLayout.style.display = 'block'; // Elimina 'grid' y la columna de 320px
+                                mainLayout.style.width = '100%';
+                            }
+
                             const target = clonedDoc.querySelector('.single-month');
                             if (target) {
-                                // Forzamos dimensiones que coincidan con el ratio A4 Landscape (1.458)
-                                target.style.width = '1458px'; 
-                                target.style.height = '1000px';
+                                // Forzamos dimensiones que coincidan exactamente con el ratio A4 Landscape (~1.45)
+                                // Si el ancho es 1500px, el alto ideal es ~1030px para llenar la hoja
+                                target.style.width = '1500px'; 
+                                target.style.height = '1030px'; 
                                 target.style.maxWidth = 'none';
                                 target.style.margin = '0';
                                 target.style.padding = '30px';
@@ -557,10 +565,9 @@ export const Calendario = {
                                     dcont.style.flex = '1';
                                     dcont.style.display = 'flex';
                                     dcont.style.flexDirection = 'column';
-                                    dcont.style.gap = '20px';
+                                    dcont.style.gap = '15px';
                                 }
 
-                                // Asegurar que las sub-grillas se expandan horizontalmente
                                 const headerGrid = target.querySelector('.month-header-grid');
                                 const daysGrid = target.querySelector('.month-days-grid');
                                 if (headerGrid) {
@@ -572,9 +579,19 @@ export const Calendario = {
                                     daysGrid.style.width = '100%';
                                     daysGrid.style.display = 'grid';
                                     daysGrid.style.gridTemplateColumns = 'repeat(5, 1fr)';
+                                    // Forzamos a que las filas se estiren para cubrir el alto disponible
+                                    daysGrid.style.gridAutoRows = '1fr'; 
                                     daysGrid.style.flex = '1';
                                 }
+
+                                // Estirar celdas individuales para asegurar llenado vertical
+                                clonedDoc.querySelectorAll('.month-days-grid .dcell').forEach(dc => {
+                                    dc.style.height = '100%';
+                                    dc.style.minHeight = '0';
+                                });
                             }
+                            container.style.width = '1550px';
+                            container.style.height = '1100px'; // Ajuste final para ratio A4
                         }
                         container.style.background = 'white';
                         container.style.boxShadow = 'none';
