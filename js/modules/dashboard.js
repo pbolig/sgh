@@ -220,8 +220,8 @@ export const Dashboard = {
                 html += timeScaleHtml;
 
                 const deptosFilt = deptos.filter(d => {
-                    if (!selectedDeptId || selectedDeptId === 'todos' || selectedDeptId === '') return true;
-                    return d.id.toString() === selectedDeptId || d.id === 99999;
+                    if (!selectedDeptId || selectedDeptId === 'todos' || selectedDeptId === '') return d.id !== 99999;
+                    return d.id.toString() === selectedDeptId;
                 });
 
                 deptosFilt.forEach(depto => {
