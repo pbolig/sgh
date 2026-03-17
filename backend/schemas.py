@@ -81,6 +81,88 @@ class Materia(MateriaBase):
     class Config:
         from_attributes = True
 
+# Esquemas de Cargo
+class CargoBase(BaseModel):
+    nombre: str
+    uso_multiple: Optional[str] = None
+    activo: Optional[int] = 1
+
+class CargoCreate(CargoBase):
+    pass
+
+class CargoUpdate(BaseModel):
+    nombre: Optional[str] = None
+    uso_multiple: Optional[str] = None
+    activo: Optional[int] = None
+
+class Cargo(CargoBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    class Config:
+        from_attributes = True
+
+# Esquemas de CargoHorario
+class CargoHorarioBase(BaseModel):
+    dia_semana: str
+    hora_inicio: str
+    hora_fin: str
+    horas: float = 0
+
+class CargoHorarioCreate(CargoHorarioBase):
+    pass
+
+class CargoHorario(CargoHorarioBase):
+    id: int
+    asignacion_id: int
+    class Config:
+        from_attributes = True
+
+# Esquemas de CargoAsignacion
+class CargoAsignacionBase(BaseModel):
+    cargo_id: int
+    docente_id: Optional[int] = None
+    departamento_id: int
+    horas_lunes: float = 0
+    horas_martes: float = 0
+    horas_miercoles: float = 0
+    horas_jueves: float = 0
+    horas_viernes: float = 0
+    horas_sabado: float = 0
+    horas_domingo: float = 0
+    total_horas: float = 0
+    hora_inicio: Optional[str] = None
+    hora_fin: Optional[str] = None
+    activo: Optional[int] = 1
+    horarios: List[CargoHorario] = []
+
+class CargoAsignacionCreate(CargoAsignacionBase):
+    pass
+
+class CargoAsignacionUpdate(BaseModel):
+    cargo_id: Optional[int] = None
+    docente_id: Optional[int] = None
+    departamento_id: Optional[int] = None
+    horas_lunes: Optional[float] = None
+    horas_martes: Optional[float] = None
+    horas_miercoles: Optional[float] = None
+    horas_jueves: Optional[float] = None
+    horas_viernes: Optional[float] = None
+    horas_sabado: Optional[float] = None
+    horas_domingo: Optional[float] = None
+    total_horas: Optional[float] = None
+    hora_inicio: Optional[str] = None
+    hora_fin: Optional[str] = None
+    activo: Optional[int] = None
+    horarios: Optional[List[CargoHorarioCreate]] = None
+
+class CargoAsignacion(CargoAsignacionBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    class Config:
+        from_attributes = True
+
 # Esquemas de Aula
 class AulaBase(BaseModel):
     departamento_id: int

@@ -554,6 +554,8 @@ select option {
     max-width: 500px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     z-index: 2001;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 .modal-content h3 {
@@ -1389,6 +1391,24 @@ textarea:focus {
     color: #64748b;
     top: -15px;
     font-weight: 400;
+}
+
+.timeline-track.cargo-track {
+    border-top: 2px dashed rgba(139, 92, 246, 0.2);
+    margin-top: 0.5rem;
+}
+
+.time-block.block-cargo {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3) 0%, rgba(139, 92, 246, 0.15) 100%);
+    border-left: 4px solid #8b5cf6;
+    border-radius: 8px;
+    z-index: 5;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.2);
+}
+
+.time-block.block-cargo .tb-head {
+    color: #c084fc;
+    font-weight: 800;
 }
 
 .dashboard-timelines {

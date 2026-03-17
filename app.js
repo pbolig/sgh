@@ -8,6 +8,8 @@ import { Comisiones } from './js/modules/comisiones.js';
 import { Editor } from './js/modules/editor.js';
 import { Dashboard } from './js/modules/dashboard.js';
 import { Reportes } from './js/modules/reportes.js';
+import { Cargos } from './js/modules/cargos.js';
+import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js';
 import { Calendario } from './js/modules/calendario.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -174,6 +176,12 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'calendario':
                 await Calendario.init();
                 await Calendario.render();
+                break;
+            case 'cargos':
+                await Cargos.render('view-container');
+                break;
+            case 'cargo-asignaciones':
+                await CargoAsignaciones.render('view-container');
                 break;
             default:
                 // Limpiar timers de dashboard si cambiamos a otra vista

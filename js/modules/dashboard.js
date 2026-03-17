@@ -38,13 +38,15 @@ export const Dashboard = {
         `;
         
         // Cargar datos necesarios
-        const [deptos, modulos, aulas, docentes, comisiones, allAsignaciones, excluidos, calEvents] = await Promise.all([
+        const [deptos, modulos, aulas, docentes, comisiones, allAsignaciones, cargoAsignaciones, cargos, excluidos, calEvents] = await Promise.all([
             Departamentos.list(),
             fetch('/api/modulos').then(r => r.json()),
             fetch('/api/aulas').then(r => r.json()),
             Docentes.list(),
             Comisiones.list(),
             fetch('/api/asignaciones').then(r => r.json()),
+            fetch('/api/cargo-asignaciones').then(r => r.json()),
+            fetch('/api/cargos').then(r => r.json()),
             fetch('/api/recreos_excluidos').then(r => r.json()),
             fetch('/api/calendarios').then(r => r.json()).then(async cals => {
                 if (cals.length > 0) {
@@ -285,6 +287,40 @@ export const Dashboard = {
                                             </div>
                                         `;
                                     }).join('')}
+
+                                    <!-- Fila de Personal de Servicio (Cargos) -->
+                                    ${(() => {
+                                        const cargosHoy = (cargoAsignaciones || []).filter(ca => {
+                                            return ca.departamento_id === depto.id && (ca.horarios || []).some(h => h.dia_semana === diaActual);
+                                        });
+
+                                        if (cargosHoy.length === 0) return '';
+
+                                        return cargosHoy.map(ca => {
+                                            const doc = docentes.find(d => d.id === ca.docente_id);
+                                            const cgDef = (cargos || []).find(c => c.id === ca.cargo_id);
+                                            const slotsHoy = ca.horarios.filter(h => h.dia_semana === diaActual);
+                                            
+                                            return `
+                                                <div class="timeline-track cargo-track">
+                                                    <div class="track-label" style="color: #8b5cf6;">👥 ${doc ? doc.apellido : 'Personal'}</div>
+                                                    <div class="track-content">
+                                                        ${slotsHoy.map(s => {
+                                                            const left = getLeftPercent(s.hora_inicio);
+                                                            const width = getWidthPercent(s.hora_inicio, s.hora_fin);
+                                                            return `
+                                                                <div class="time-block block-cargo" style="left: ${left}%; width: ${width}%">
+                                                                    <div class="tb-head">${cgDef ? cgDef.nombre : 'Cargo'}</div>
+                                                                    <div class="tb-body">${doc ? `${doc.apellido}, ${doc.nombre}` : ''}</div>
+                                                                    <div class="tb-time">${s.hora_inicio}-${s.hora_fin}</div>
+                                                                </div>
+                                                            `;
+                                                        }).join('')}
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('');
+                                    })()}
                                 </div>
                         </div>
                     `;
@@ -309,9 +345,8 @@ export const Dashboard = {
                     const mStr = now.getMinutes().toString().padStart(2, '0');
                     cursorBubble.textContent = `${hStr}:${mStr}`;
                 }
-
-                // La posición red ahora se coordina en un loop de alta velocidad
             }
+
             // Lógica del Globo Resumen al hacer Hover (Evento Delegado para persistencia tras render)
             if (grid && !grid.dataset.hoverBound) {
                 grid.addEventListener('mouseover', (e) => {
@@ -405,6 +440,41 @@ export const Dashboard = {
                                         </div>
                                     `;
                                 }
+                            });
+
+                            // --- DETECTAR CARGOS ACTIVOS EN ESTE DEPTO ---
+                            const cargosDpt = (cargoAsignaciones || []).filter(ca => {
+                                if (ca.departamento_id !== dpt.id) return false;
+                                return (ca.horarios || []).some(h => {
+                                    if (h.dia_semana !== curDia) return false;
+                                    const start = Dashboard.timeToMinutes(h.hora_inicio);
+                                    const end = Dashboard.timeToMinutes(h.hora_fin);
+                                    return cMins >= start && cMins <= end;
+                                });
+                            });
+
+                            cargosDpt.forEach(ca => {
+                                foundAny = true;
+                                const doc = docentes.find(d => d.id === ca.docente_id);
+                                const cgDef = cargos.find(c => c.id === ca.cargo_id);
+                                
+                                // Encontrar el slot exacto activo para mostrar el rango horario en el globo
+                                const activeSlot = ca.horarios.find(h => {
+                                    if (h.dia_semana !== curDia) return false;
+                                    const start = Dashboard.timeToMinutes(h.hora_inicio);
+                                    const end = Dashboard.timeToMinutes(h.hora_fin);
+                                    return cMins >= start && cMins <= end;
+                                });
+
+                                activeHtml += `
+                                    <div class="gb-item cargo">
+                                        <div class="gb-item-title">${dpt.nombre} (P. de Servicio)</div>
+                                        <div class="gb-item-subtitle">
+                                            <span style="color: #a78bfa; font-weight: bold;">👥 ${doc ? `${doc.apellido}, ${doc.nombre}` : 'Personal'}</span>
+                                            <span>💼 ${cgDef ? cgDef.nombre : 'Cargo'} | ⏱️ ${activeSlot ? activeSlot.hora_inicio + '-' + activeSlot.hora_fin : 'En horario'}</span>
+                                        </div>
+                                    </div>
+                                `;
                             });
                         });
                         

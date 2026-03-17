@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -24,6 +24,7 @@ class Departamento(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     materias = relationship("Materia", back_populates="departamento")
+    # Cargos se manejan via asignaciones
 
 class Docente(Base):
     __tablename__ = "docentes"
@@ -35,6 +36,8 @@ class Docente(Base):
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    cargos_asignados = relationship("CargoAsignacion", back_populates="docente")
 
 class Materia(Base):
     __tablename__ = "materias"
@@ -109,6 +112,60 @@ class RecreoExcluido(Base):
 
     departamento = relationship("Departamento")
     modulo_anterior = relationship("ModuloHorario")
+
+class Cargo(Base):
+    __tablename__ = "cargos"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, index=True)
+    uso_multiple = Column(Text, nullable=True)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    asignaciones = relationship("CargoAsignacion", back_populates="cargo")
+
+class CargoAsignacion(Base):
+    __tablename__ = "cargo_asignaciones"
+    id = Column(Integer, primary_key=True, index=True)
+    cargo_id = Column(Integer, ForeignKey("cargos.id"))
+    docente_id = Column(Integer, ForeignKey("docentes.id"), nullable=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    
+    # Horas por día (60 min)
+    horas_lunes = Column(Float, default=0)
+    horas_martes = Column(Float, default=0)
+    horas_miercoles = Column(Float, default=0)
+    horas_jueves = Column(Float, default=0)
+    horas_viernes = Column(Float, default=0)
+    horas_sabado = Column(Float, default=0)
+    horas_domingo = Column(Float, default=0)
+    
+    total_horas = Column(Float, default=0)
+    
+    # Horarios para Dashboard
+    hora_inicio = Column(String, nullable=True) # ej: "08:00"
+    hora_fin = Column(String, nullable=True)    # ej: "12:00"
+    
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    cargo = relationship("Cargo", back_populates="asignaciones")
+    departamento = relationship("Departamento")
+    docente = relationship("Docente", back_populates="cargos_asignados")
+    horarios = relationship("CargoHorario", back_populates="asignacion", cascade="all, delete-orphan")
+
+class CargoHorario(Base):
+    __tablename__ = "cargo_horarios"
+    id = Column(Integer, primary_key=True, index=True)
+    asignacion_id = Column(Integer, ForeignKey("cargo_asignaciones.id"))
+    
+    dia_semana = Column(String) # lunes, martes, ...
+    hora_inicio = Column(String) # "08:00"
+    hora_fin = Column(String)    # "09:00"
+    horas = Column(Float, default=0) # Cantidad de horas (60 min) en este slot
+    
+    asignacion = relationship("CargoAsignacion", back_populates="horarios")
 
 # --- MODELOS DE CALENDARIO ---
 

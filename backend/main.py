@@ -246,6 +246,119 @@ async def delete_comision(id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Comisión eliminada correctamente"}
 
+# --- CARGOS ---
+
+@app.get("/cargos", response_model=List[schemas.Cargo])
+async def get_cargos(db: Session = Depends(get_db)):
+    return db.query(models.Cargo).all()
+
+@app.post("/cargos", response_model=schemas.Cargo)
+async def create_cargo(cargo: schemas.CargoCreate, db: Session = Depends(get_db)):
+    new_cargo = models.Cargo(**cargo.dict())
+    db.add(new_cargo)
+    db.commit()
+    db.refresh(new_cargo)
+    return new_cargo
+
+@app.put("/cargos/{id}", response_model=schemas.Cargo)
+async def update_cargo(id: int, cargo: schemas.CargoUpdate, db: Session = Depends(get_db)):
+    db_cargo = db.query(models.Cargo).filter(models.Cargo.id == id).first()
+    if not db_cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado")
+    
+    for key, value in cargo.dict(exclude_unset=True).items():
+        setattr(db_cargo, key, value)
+    
+    db.commit()
+    db.refresh(db_cargo)
+    return db_cargo
+
+@app.delete("/cargos/{id}")
+async def delete_cargo(id: int, db: Session = Depends(get_db)):
+    db_cargo = db.query(models.Cargo).filter(models.Cargo.id == id).first()
+    if not db_cargo:
+        raise HTTPException(status_code=404, detail="Cargo no encontrado")
+    
+    db.delete(db_cargo)
+    db.commit()
+    return {"message": "Cargo eliminado correctamente"}
+
+# --- CARGO ASIGNACIONES ---
+
+@app.get("/cargo-asignaciones", response_model=List[schemas.CargoAsignacion])
+async def get_cargo_asignaciones(db: Session = Depends(get_db)):
+    return db.query(models.CargoAsignacion).all()
+
+@app.post("/cargo-asignaciones", response_model=schemas.CargoAsignacion)
+async def create_cargo_asignacion(asig: schemas.CargoAsignacionCreate, db: Session = Depends(get_db)):
+    data = asig.dict()
+    horarios_data = data.pop('horarios', [])
+    
+    # Calcular total automáticamente desde los slots si existen, sino usar las columnas viejas
+    if horarios_data:
+        data['total_horas'] = sum([h.get('horas', 0) for h in horarios_data])
+    else:
+        data['total_horas'] = sum([
+            data.get(f'horas_{d}', 0) for d in ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+        ])
+
+    new_asig = models.CargoAsignacion(**data)
+    db.add(new_asig)
+    db.commit()
+    db.refresh(new_asig)
+    
+    # Crear los slots horarios
+    for h_data in horarios_data:
+        db_h = models.CargoHorario(**h_data, asignacion_id=new_asig.id)
+        db.add(db_h)
+    
+    db.commit()
+    db.refresh(new_asig)
+    return new_asig
+
+@app.put("/cargo-asignaciones/{id}", response_model=schemas.CargoAsignacion)
+async def update_cargo_asignacion(id: int, asig: schemas.CargoAsignacionUpdate, db: Session = Depends(get_db)):
+    db_asig = db.query(models.CargoAsignacion).filter(models.CargoAsignacion.id == id).first()
+    if not db_asig:
+        raise HTTPException(status_code=404, detail="Asignación no encontrada")
+    
+    update_data = asig.dict(exclude_unset=True)
+    horarios_data = update_data.pop('horarios', None)
+    
+    # Actualizar campos básicos
+    for key, value in update_data.items():
+        setattr(db_asig, key, value)
+    
+    # Si se envían horarios, reemplazar los anteriores
+    if horarios_data is not None:
+        # Borrar anteriores
+        db.query(models.CargoHorario).filter(models.CargoHorario.asignacion_id == id).delete()
+        # Insertar nuevos
+        for h_data in horarios_data:
+            db_h = models.CargoHorario(**h_data, asignacion_id=id)
+            db.add(db_h)
+        # Recalcular total desde slots
+        db_asig.total_horas = sum([h.get('horas', 0) for h in horarios_data])
+    else:
+        # Recalcular total desde columnas viejas
+        db_asig.total_horas = sum([
+            getattr(db_asig, f'horas_{d}', 0) for d in ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo']
+        ])
+    
+    db.commit()
+    db.refresh(db_asig)
+    return db_asig
+
+@app.delete("/cargo-asignaciones/{id}")
+async def delete_cargo_asignacion(id: int, db: Session = Depends(get_db)):
+    db_asig = db.query(models.CargoAsignacion).filter(models.CargoAsignacion.id == id).first()
+    if not db_asig:
+        raise HTTPException(status_code=404, detail="Asignación no encontrada")
+    
+    db.delete(db_asig)
+    db.commit()
+    return {"message": "Asignación eliminada correctamente"}
+
 # --- EDITOR / ASIGNACIONES ---
 
 @app.get("/modulos", response_model=List[schemas.ModuloHorario])
