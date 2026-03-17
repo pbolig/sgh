@@ -88,12 +88,19 @@ export const Calendario = {
                 
                 <div class="cal-sidebar">
                     <div class="glass-card categories-box">
-                        <h3>Referencias</h3>
+                        <div class="cork-header">
+                            <h3>Referencias</h3>
+                            <button class="btn-icon-add" onclick="Calendario.showCategoryForm()">+</button>
+                        </div>
                         <div class="cat-list">
                             ${this.db.categories.map(c => `
                                 <div class="cat-item">
                                     <span class="cat-dot" style="background: ${c.color}"></span>
                                     <span class="cat-name">${c.nombre || c.name}</span>
+                                    <div class="cat-actions">
+                                        <button class="btn-icon-small" onclick="Calendario.showCategoryForm(${JSON.stringify(c).replace(/"/g, '&quot;')})">✎</button>
+                                        <button class="btn-icon-small btn-del" onclick="Calendario.deleteCategory(${c.id})">×</button>
+                                    </div>
                                 </div>
                             `).join('')}
                         </div>
@@ -112,7 +119,7 @@ export const Calendario = {
                             ${this.db.notes.map(n => `
                                 <div class="sticky-note" style="background: ${n.color || '#feff9c'}">
                                     <button class="note-del" onclick="Calendario.removeNote(${n.id})">×</button>
-                                    <div class="note-content">${n.texto}</div>
+                                    <div class="note-content">${this.linkify(n.texto)}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -187,18 +194,19 @@ export const Calendario = {
         let html = '';
 
         if (this.currentView === 'annual') {
-            MN.forEach((name, idx) => {
-                html += `
-                    <div class="mcard glass-card">
-                        <div class="mname-link" onclick="Calendario.switchToMonthly(${idx})" title="Ver mes detalle">
-                            <div class="mname">${name}</div>
+                MN.forEach((name, idx) => {
+                    html += `
+                        <div class="mcard glass-card">
+                            <div class="mname-link" onclick="Calendario.switchToMonthly(${idx})" title="Ver mes detalle">
+                                <div class="mname">${name}</div>
+                            </div>
+                            <div class="dcont-annual">
+                                ${DLABELS.map(d => `<div class="dlbl">${d[0]}</div>`).join('')}
+                                ${this.buildMonthGrid(this.currentYear, idx, false)}
+                            </div>
                         </div>
-                        <div class="dcont-annual">
-                            ${this.buildMonthGrid(this.currentYear, idx, false)}
-                        </div>
-                    </div>
-                `;
-            });
+                    `;
+                });
         } else {
             html = `
                 <div class="mcard glass-card single-month">
@@ -715,6 +723,107 @@ export const Calendario = {
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
+    },
+
+    async showCategoryForm(cat = null) {
+        const title = cat ? 'Editar Categoría' : 'Nueva Categoría';
+        const nameValue = cat ? cat.nombre : '';
+        const colorValue = cat ? cat.color : '#6366f1';
+        
+        const modal = document.getElementById('cal-modal-overlay');
+        const modalContent = modal.querySelector('.cal-modal');
+        
+        const originalContent = modalContent.innerHTML;
+        modalContent.innerHTML = `
+            <h3>${title}</h3>
+            <div class="modal-desc-box">
+                <label>Nombre:</label>
+                <input type="text" id="cat-name-input" value="${nameValue}" placeholder="Ej: Feriado, Exámenes...">
+            </div>
+            <div class="modal-desc-box">
+                <label>Color:</label>
+                <input type="color" id="cat-color-input" value="${colorValue}" style="height: 40px; cursor: pointer">
+            </div>
+            <div class="modal-actions">
+                 <button class="btn-primary" onclick="Calendario.saveCategory(${cat ? cat.id : 'null'})">Guardar</button>
+                 <button class="btn-secondary" onclick="Calendario.closeModal()">Cancelar</button>
+            </div>
+        `;
+        
+        modal.classList.add('active');
+        
+        const originalClose = this.closeModal.bind(this);
+        this.closeModal = () => {
+             modalContent.innerHTML = originalContent;
+             this.closeModal = originalClose;
+             originalClose();
+        };
+    },
+
+    async saveCategory(id = null) {
+        const nombre = document.getElementById('cat-name-input').value;
+        const color = document.getElementById('cat-color-input').value;
+        if (!nombre) return alert("El nombre es requerido");
+
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/api/calendario_categorias/${id}` : `/api/calendario_categorias`;
+        
+        try {
+            const res = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    calendario_id: this.calendarioId,
+                    nombre,
+                    color
+                })
+            }).then(r => r.json());
+            
+            if (res.id || res.message) {
+                this.closeModal();
+                this.render();
+            } else {
+                alert("Error al guardar categoría");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error de conexión");
+        }
+    },
+
+    async deleteCategory(id) {
+        if (!confirm("¿Seguro que deseas eliminar esta categoría? Solo se podrá eliminar si no tiene eventos asociados.")) return;
+        try {
+            const res = await fetch(`/api/calendario_categorias/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                this.render();
+            } else {
+                alert(data.detail || "Error al eliminar");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error de conexión");
+        }
+    },
+
+    linkify(text) {
+        if (!text) return "";
+        // Detectar URLs con protocolo (http://, https://, etc)
+        const protocolPattern = /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/ig;
+        // Detectar URLs que empiezan con www.
+        const wwwPattern = /(^|[^\/])(www\.[\S]+(\b|$))/gim;
+
+        let result = text.replace(protocolPattern, (url) => {
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        });
+        
+        result = result.replace(wwwPattern, (match, p1, p2) => {
+            const url = p2;
+            return `${p1}<a href="http://${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+        });
+
+        return result;
     }
 };
 

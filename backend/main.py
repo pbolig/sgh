@@ -465,6 +465,32 @@ async def create_calendario_categoria(cat: schemas.CalendarioCategoriaCreate, db
     db.commit()
     db.refresh(new_cat)
     return new_cat
+@app.put("/calendario_categorias/{id}", response_model=schemas.CalendarioCategoria)
+async def update_calendario_categoria(id: int, cat: schemas.CalendarioCategoriaCreate, db: Session = Depends(get_db)):
+    db_cat = db.query(models.CalendarioCategoria).filter(models.CalendarioCategoria.id == id).first()
+    if not db_cat:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    
+    db_cat.nombre = cat.nombre
+    db_cat.color = cat.color
+    db.commit()
+    db.refresh(db_cat)
+    return db_cat
+
+@app.delete("/calendario_categorias/{id}")
+async def delete_calendario_categoria(id: int, db: Session = Depends(get_db)):
+    db_cat = db.query(models.CalendarioCategoria).filter(models.CalendarioCategoria.id == id).first()
+    if not db_cat:
+        raise HTTPException(status_code=404, detail="Categoría no encontrada")
+    
+    # Verificar si hay eventos usando esta categoría
+    events_count = db.query(models.CalendarioEvento).filter(models.CalendarioEvento.categoria_id == id).count()
+    if events_count > 0:
+        raise HTTPException(status_code=400, detail="No se puede eliminar una categoría que tiene eventos asociados")
+
+    db.delete(db_cat)
+    db.commit()
+    return {"message": "Categoría eliminada correctamente"}
 
 # --- EVENTOS CALENDARIO ---
 
@@ -474,16 +500,7 @@ async def get_calendario_eventos(calendario_id: int, db: Session = Depends(get_d
 
 @app.post("/calendario_eventos", response_model=schemas.CalendarioEvento)
 async def create_calendario_evento(evt: schemas.CalendarioEventoCreate, db: Session = Depends(get_db)):
-    # Eliminar duplicados para la misma fecha/calendario/categoria si existen
-    existing = db.query(models.CalendarioEvento).filter(
-        models.CalendarioEvento.calendario_id == evt.calendario_id,
-        models.CalendarioEvento.fecha == evt.fecha,
-        models.CalendarioEvento.categoria_id == evt.categoria_id
-    ).first()
-    if existing:
-        db.delete(existing)
-        db.commit()
-
+    # Se eliminó la lógica de borrado de duplicados para permitir múltiples eventos por día
     new_evt = models.CalendarioEvento(**evt.dict())
     db.add(new_evt)
     db.commit()
