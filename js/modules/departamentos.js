@@ -156,7 +156,15 @@ export const Departamentos = {
         };
 
         window.deleteDepto = async (id) => {
-            if (confirm('¿Está seguro de eliminar este departamento?')) {
+            const warningMsg = `¡ATENCIÓN! Está por eliminar este departamento.\n\n` +
+                               `Esta acción es irreversible e INCLUYE EL BORRADO EN CASCADA de:\n` +
+                               `• Todas las Materias vinculadas\n` +
+                               `• Todas las Aulas vinculadas\n` +
+                               `• Todas las Asignaciones de clases\n` +
+                               `• Todos los Cargos y Horarios del personal en este depto\n\n` +
+                               `¿Realmente desea eliminar TODO lo anterior?`;
+
+            if (confirm(warningMsg)) {
                 const res = await Departamentos.delete(id);
                 if (res.success) {
                     Departamentos.render(containerId);

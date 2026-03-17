@@ -23,8 +23,11 @@ class Departamento(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
-    materias = relationship("Materia", back_populates="departamento")
-    # Cargos se manejan via asignaciones
+    materias = relationship("Materia", back_populates="departamento", cascade="all, delete-orphan")
+    aulas = relationship("Aula", back_populates="departamento", cascade="all, delete-orphan")
+    asignaciones = relationship("Asignacion", back_populates="departamento", cascade="all, delete-orphan")
+    recreos_excluidos = relationship("RecreoExcluido", back_populates="departamento", cascade="all, delete-orphan")
+    cargos_asignados = relationship("CargoAsignacion", back_populates="departamento", cascade="all, delete-orphan")
 
 class Docente(Base):
     __tablename__ = "docentes"
@@ -44,7 +47,7 @@ class Materia(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, index=True)
     codigo = Column(String, unique=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -54,7 +57,7 @@ class Materia(Base):
 class Aula(Base):
     __tablename__ = "aulas"
     id = Column(Integer, primary_key=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
     nombre = Column(String, index=True)
     capacidad = Column(Integer, nullable=True)
     activo = Column(Integer, default=1)
@@ -87,7 +90,7 @@ class ModuloHorario(Base):
 class Asignacion(Base):
     __tablename__ = "asignaciones"
     id = Column(Integer, primary_key=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
     aula_id = Column(Integer, ForeignKey("aulas.id"))
     modulo_id = Column(Integer, ForeignKey("modulos_horario.id"))
     dia_semana = Column(String)
@@ -99,14 +102,14 @@ class Asignacion(Base):
     updated_by = Column(String, nullable=True)
 
     comision = relationship("Comision", back_populates="asignaciones")
+    departamento = relationship("Departamento", back_populates="asignaciones")
     docente = relationship("Docente")
-    aula = relationship("Aula")
     modulo = relationship("ModuloHorario")
 
 class RecreoExcluido(Base):
     __tablename__ = "recreos_excluidos"
     id = Column(Integer, primary_key=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
     dia_semana = Column(String) # 'lunes', 'martes', etc.
     modulo_id_anterior = Column(Integer, ForeignKey("modulos_horario.id")) # El módulo tras el cual viene el recreo
 
@@ -129,7 +132,7 @@ class CargoAsignacion(Base):
     id = Column(Integer, primary_key=True, index=True)
     cargo_id = Column(Integer, ForeignKey("cargos.id"))
     docente_id = Column(Integer, ForeignKey("docentes.id"), nullable=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
     
     # Horas por día (60 min)
     horas_lunes = Column(Float, default=0)
