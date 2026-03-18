@@ -157,12 +157,12 @@ export const Calendario = {
         if (!container) return;
 
         container.addEventListener('mouseover', (e) => {
-            const dtxt = e.target.closest('.dtxt');
-            if (dtxt) {
+            const target = e.target.closest('.dtxt, .ddot');
+            if (target) {
                 const tooltip = document.getElementById('cal-tooltip');
                 if (tooltip) {
-                    const desc = dtxt.getAttribute('title');
-                    const cat = dtxt.dataset.catName || 'Evento';
+                    const desc = target.getAttribute('title');
+                    const cat = target.dataset.catName || 'Evento';
                     tooltip.innerHTML = `<h4>${cat}</h4><div>${desc}</div>`;
                     tooltip.classList.add('active');
                 }
@@ -180,8 +180,8 @@ export const Calendario = {
         });
 
         container.addEventListener('mouseout', (e) => {
-            const dtxt = e.target.closest('.dtxt');
-            if (dtxt) {
+            const target = e.target.closest('.dtxt, .ddot');
+            if (target) {
                 const tooltip = document.getElementById('cal-tooltip');
                 if (tooltip) tooltip.classList.remove('active');
             }
@@ -300,10 +300,13 @@ export const Calendario = {
                     ${workloadBadge}
                     <div class="dstack">
                         ${evts.map(e => {
-                            if (this.currentView === 'annual') {
-                                return `<span class="ddot" style="background: ${e.categoria.color}" title="${e.descripcion || e.categoria.nombre}"></span>`;
-                            }
                             const catNameEncoded = e.categoria.nombre.replace(/'/g, "&apos;");
+                            if (this.currentView === 'annual') {
+                                return `<span class="ddot" 
+                                              style="background: ${e.categoria.color}" 
+                                              title="${e.descripcion || e.categoria.nombre}"
+                                              data-cat-name="${catNameEncoded}"></span>`;
+                            }
                             return `<span class="dtxt" 
                                           title="${e.descripcion || e.categoria.nombre}" 
                                           data-cat-name="${catNameEncoded}">${e.descripcion || e.categoria.nombre}</span>`;
@@ -624,44 +627,70 @@ export const Calendario = {
 
             pdf.addImage(imgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
 
-            // --- HOJA 2+: DETALLES CRONOLÓGICOS ---
-            const chronologicalEvents = [];
-            if (isAnnual) {
-                // Todos los eventos del año
-                for (let m = 0; m < 12; m++) {
-                    const days = new Date(this.currentYear, m + 1, 0).getDate();
-                    for (let d = 1; d <= days; d++) {
-                        const key = `${this.currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                        if (this.db.events[key]) {
-                            this.db.events[key].forEach(ev => {
-                                chronologicalEvents.push({ 
-                                    label: `${d} ${this.getMonthName(m)}`, 
-                                    cat: ev.categoria.nombre, 
-                                    desc: ev.descripcion || '-' 
-                                });
-                            });
-                        }
-                    }
-                }
-            } else {
-                // Solo el mes seleccionado
-                const m = this.selectedMonthIdx;
+            // --- HOJA 2+: DETALLES CRONOLÓGICOS (AGRUPADOS POR RANGOS) ---
+            const rawEvents = [];
+            const targetMonths = isAnnual ? [...Array(12).keys()] : [this.selectedMonthIdx];
+            
+            targetMonths.forEach(m => {
                 const days = new Date(this.currentYear, m + 1, 0).getDate();
                 for (let d = 1; d <= days; d++) {
                     const key = `${this.currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                     if (this.db.events[key]) {
                         this.db.events[key].forEach(ev => {
-                            chronologicalEvents.push({ 
-                                label: `${d} ${this.getMonthName(m)}`, 
-                                cat: ev.categoria.nombre, 
-                                desc: ev.descripcion || '-' 
+                            rawEvents.push({
+                                date: new Date(this.currentYear, m, d),
+                                cat: ev.categoria.nombre,
+                                desc: ev.descripcion || '-'
                             });
                         });
                     }
                 }
-            }
+            });
 
-            if (chronologicalEvents.length > 0) {
+            // Agrupar por (Categoría + Descripción) y colapsar fechas consecutivas
+            const chronologicalEvents = [];
+            const processed = new Map(); // Key: cat|desc -> lastRange
+
+            rawEvents.forEach(curr => {
+                const key = `${curr.cat}|${curr.desc}`;
+                const last = processed.get(key);
+                
+                const isConsecutive = (d1, d2) => {
+                    const next = new Date(d1);
+                    next.setDate(next.getDate() + 1);
+                    return next.toDateString() === d2.toDateString();
+                };
+
+                if (last && isConsecutive(last.endDate, curr.date)) {
+                    last.endDate = curr.date;
+                } else {
+                    const newRange = { startDate: curr.date, endDate: curr.date, cat: curr.cat, desc: curr.desc };
+                    chronologicalEvents.push(newRange);
+                    processed.set(key, newRange);
+                }
+            });
+
+            // Ordenar rangos de nuevo por fecha de inicio (importante ya que el push por cat desordena el flujo temporal)
+            chronologicalEvents.sort((a, b) => a.startDate - b.startDate);
+
+            // Mapear a formato de tabla
+            const finalEventRows = chronologicalEvents.map(range => {
+                let label = "";
+                const s = range.startDate;
+                const e = range.endDate;
+                
+                if (s.getTime() === e.getTime()) {
+                    label = `${s.getDate()} ${this.getMonthName(s.getMonth())}`;
+                } else if (s.getMonth() === e.getMonth()) {
+                    label = `Del ${s.getDate()} al ${e.getDate()} ${this.getMonthName(s.getMonth())}`;
+                } else {
+                    label = `Del ${s.getDate()} ${this.getMonthName(s.getMonth())} al ${e.getDate()} ${this.getMonthName(e.getMonth())}`;
+                }
+
+                return { label, cat: range.cat, desc: range.desc };
+            });
+
+            if (finalEventRows.length > 0) {
                 pdf.addPage(orientation, 'a4');
                 pdf.setFontSize(16);
                 pdf.setTextColor(40);
@@ -676,14 +705,14 @@ export const Calendario = {
                 pdf.setFillColor(240, 240, 240);
                 pdf.rect(margin, y - 5, printableWidth, 7, 'F');
                 pdf.text("FECHA", margin + 2, y);
-                pdf.text("CATEGORÍA", margin + 35, y);
-                pdf.text("DETALLE DEL EVENTO", margin + 85, y);
+                pdf.text("CATEGORÍA", margin + 68, y);
+                pdf.text("DETALLE DEL EVENTO", margin + 118, y);
                 
                 y += 10;
                 pdf.setFont("helvetica", "normal");
 
-                chronologicalEvents.forEach(ev => {
-                    const splitDesc = pdf.splitTextToSize(ev.desc, printableWidth - 90);
+                finalEventRows.forEach(ev => {
+                    const splitDesc = pdf.splitTextToSize(ev.desc, printableWidth - 122);
                     const rowHeight = (splitDesc.length * 5) + 4;
 
                     if (y + rowHeight > pageHeight - margin - 5) {
@@ -695,8 +724,8 @@ export const Calendario = {
                         pdf.setFillColor(240, 240, 240);
                         pdf.rect(margin, y - 5, printableWidth, 7, 'F');
                         pdf.text("FECHA", margin + 2, y);
-                        pdf.text("CATEGORÍA", margin + 35, y);
-                        pdf.text("DETALLE DEL EVENTO", margin + 85, y);
+                        pdf.text("CATEGORÍA", margin + 68, y);
+                        pdf.text("DETALLE DEL EVENTO", margin + 118, y);
                         y += 10;
                         pdf.setFont("helvetica", "normal");
                     }
@@ -705,8 +734,8 @@ export const Calendario = {
                     pdf.line(margin, y - 5, pageWidth - margin, y - 5);
 
                     pdf.text(ev.label, margin + 2, y);
-                    pdf.text(ev.cat, margin + 35, y);
-                    pdf.text(splitDesc, margin + 85, y);
+                    pdf.text(ev.cat, margin + 68, y);
+                    pdf.text(splitDesc, margin + 118, y);
 
                     y += rowHeight;
                 });
