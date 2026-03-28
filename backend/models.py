@@ -203,3 +203,38 @@ class NotaAdhesiva(Base):
     texto = Column(Text)
     color = Column(String, default="#feff9c")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class Planificacion(Base):
+    __tablename__ = "planificaciones"
+    id = Column(Integer, primary_key=True, index=True)
+    materia_id = Column(Integer, ForeignKey("materias.id", ondelete="CASCADE"))
+    docente_id = Column(Integer, ForeignKey("docentes.id"), nullable=True)
+    comision_id = Column(Integer, ForeignKey("comisiones.id"), nullable=True)
+    anio_lectivo = Column(Integer, index=True)
+    
+    # Datos de encabezado (planos para fácil búsqueda)
+    jurisdiccion = Column(String, nullable=True)
+    instituto = Column(String, nullable=True)
+    carrera = Column(String, nullable=True)
+    anio_cursada = Column(String, nullable=True)
+    modalidad = Column(String, nullable=True)
+    carga_horaria = Column(Float, nullable=True)
+    
+    # Bloques de contenido (JSON)
+    marco_curricular = Column(Text, nullable=True) # JSON: objgen, competencias, perfil, metodologia
+    correlatividades = Column(Text, nullable=True) # JSON: cursar, final, simult, plan_url
+    normativa = Column(Text, nullable=True)      # JSON: ram, aprob
+    unidades = Column(Text, nullable=True)       # JSON array: [{unidad, titulo, duracion, ...}]
+    fichas = Column(Text, nullable=True)         # JSON array: [{unidad, titulo, ...}]
+    cronograma = Column(Text, nullable=True)     # JSON array: [{fecha, tema, ...}]
+    evaluacion = Column(Text, nullable=True)     # JSON: criterios, instrumentos, ponderaciones
+    bibliografia = Column(Text, nullable=True)   # JSON: ob, comp
+    practica_profesionalizante = Column(Text, nullable=True) # JSON full block
+    firmas = Column(Text, nullable=True)         # JSON: docente, coord
+
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    materia = relationship("Materia")
+    docente = relationship("Docente")
+    comision = relationship("Comision")

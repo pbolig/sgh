@@ -11,6 +11,7 @@ import { Reportes } from './js/modules/reportes.js';
 import { Cargos } from './js/modules/cargos.js';
 import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js';
 import { Calendario } from './js/modules/calendario.js';
+import { PAD } from './js/modules/pad.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('App inicializada');
@@ -176,6 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'calendario':
                 await Calendario.init();
                 await Calendario.render();
+                break;
+            case 'pad':
+                await PAD.init();
+                await PAD.render('view-container');
                 break;
             case 'cargos':
                 await Cargos.render('view-container');

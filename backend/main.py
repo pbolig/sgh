@@ -538,3 +538,52 @@ async def delete_nota_adhesiva(id: int, db: Session = Depends(get_db)):
     db.delete(db_nota)
     db.commit()
     return {"message": "Nota eliminada correctamente"}
+
+# --- PLANIFICACIONES (PAD) ---
+
+@app.get("/planificaciones", response_model=List[schemas.Planificacion])
+async def get_planificaciones(materia_id: Optional[int] = None, anio_lectivo: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Planificacion)
+    if materia_id:
+        query = query.filter(models.Planificacion.materia_id == materia_id)
+    if anio_lectivo:
+        query = query.filter(models.Planificacion.anio_lectivo == anio_lectivo)
+    return query.all()
+
+@app.get("/planificaciones/{id}", response_model=schemas.Planificacion)
+async def get_planificacion(id: int, db: Session = Depends(get_db)):
+    db_plan = db.query(models.Planificacion).filter(models.Planificacion.id == id).first()
+    if not db_plan:
+        raise HTTPException(status_code=404, detail="Planificación no encontrada")
+    return db_plan
+
+@app.post("/planificaciones", response_model=schemas.Planificacion)
+async def create_planificacion(plan: schemas.PlanificacionCreate, db: Session = Depends(get_db)):
+    new_plan = models.Planificacion(**plan.dict())
+    db.add(new_plan)
+    db.commit()
+    db.refresh(new_plan)
+    return new_plan
+
+@app.put("/planificaciones/{id}", response_model=schemas.Planificacion)
+async def update_planificacion(id: int, plan: schemas.PlanificacionCreate, db: Session = Depends(get_db)):
+    db_plan = db.query(models.Planificacion).filter(models.Planificacion.id == id).first()
+    if not db_plan:
+        raise HTTPException(status_code=404, detail="Planificación no encontrada")
+    
+    update_data = plan.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(db_plan, key, value)
+    
+    db.commit()
+    db.refresh(db_plan)
+    return db_plan
+
+@app.delete("/planificaciones/{id}")
+async def delete_planificacion(id: int, db: Session = Depends(get_db)):
+    db_plan = db.query(models.Planificacion).filter(models.Planificacion.id == id).first()
+    if not db_plan:
+        raise HTTPException(status_code=404, detail="Planificación no encontrada")
+    db.delete(db_plan)
+    db.commit()
+    return {"message": "Planificación eliminada correctamente"}

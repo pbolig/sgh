@@ -1651,6 +1651,7 @@ textarea:focus {
     opacity: 1;
     visibility: visible;
     transform: translateX(25px); /* Efecto de acercamiento lateral */
+    pointer-events: auto; /* Permitir scroll e interacción */
 }
 
 /* Indicador de flecha en el globo hacia el cursor */

@@ -57,36 +57,7 @@ export const Dashboard = {
             })
         ]);
         
-        // --- INYECCIÓN DE DEPARTAMENTO DE DEMOSTRACIÓN (EN VIVO) ---
-        const now = new Date();
-        const diasSemanaIdx = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-        const diaActualDbg = diasSemanaIdx[now.getDay()];
-        
-        const dpDemoId = 99999;
-        const alDemoId = 99999;
-        deptos.unshift({ id: dpDemoId, nombre: "🚀 DEPARTAMENTO DE DEMOSTRACIÓN (EN VIVO)" }); 
-        aulas.push({ id: alDemoId, departamento_id: dpDemoId, nombre: "Aula Test" });
-        
-        const toStr = (h, m) => `${Math.floor(h).toString().padStart(2,'0')}:${Math.floor(m).toString().padStart(2,'0')}`;
-        
-        // Generar un bloque de 10 minutos por hora desde las 7 hasta las 22
-        let demIdx = 990;
-        for (let h = 7; h <= 21; h++) {
-            modulos.push({ id: demIdx, hora_inicio: toStr(h, 0), hora_fin: toStr(h, 20) });
-            modulos.push({ id: demIdx+1, hora_inicio: toStr(h, 30), hora_fin: toStr(h, 50) });
-            
-            allAsignaciones.push({ aula_id: alDemoId, dia_semana: diaActualDbg, modulo_id: demIdx, comision_id: demIdx, docente_id: demIdx });
-            allAsignaciones.push({ aula_id: alDemoId, dia_semana: diaActualDbg, modulo_id: demIdx+1, comision_id: demIdx+1, docente_id: demIdx+1 });
-            
-            comisiones.push({ id: demIdx, codigo: `T-${h}A` });
-            docentes.push({ id: demIdx, apellido: "Simulado A" });
-            
-            comisiones.push({ id: demIdx+1, codigo: `T-${h}B` });
-            docentes.push({ id: demIdx+1, apellido: "Simulado B" });
-            
-            demIdx += 2;
-        }
-        // ------------------------------------------------------------
+        // --- DEPARTAMENTO DE DEMOSTRACIÓN ELIMINADO ---
 
 
         const totalMinutes = Dashboard.timeRange.end - Dashboard.timeRange.start;
@@ -220,7 +191,7 @@ export const Dashboard = {
                 html += timeScaleHtml;
 
                 const deptosFilt = deptos.filter(d => {
-                    if (!selectedDeptId || selectedDeptId === 'todos' || selectedDeptId === '') return d.id !== 99999;
+                    if (!selectedDeptId || selectedDeptId === 'todos' || selectedDeptId === '') return true;
                     return d.id.toString() === selectedDeptId;
                 });
 
@@ -370,7 +341,7 @@ export const Dashboard = {
                         const selId = ds ? ds.value : '';
                         const deptosScope = deptos.filter(d => {
                             if (!selId || selId === 'todos' || selId === '') return true;
-                            return d.id.toString() === selId || d.id === 99999;
+                            return d.id.toString() === selId;
                         });
                         
                         let foundAny = false;
@@ -566,7 +537,7 @@ export const Dashboard = {
                 const selId = ds ? ds.value : '';
                 const deptosScope = deptos.filter(d => {
                     if (!selId || selId === 'todos' || selId === '') return true;
-                    return d.id.toString() === selId || d.id === 99999;
+                    return d.id.toString() === selId;
                 });
 
                 deptosScope.forEach(dpt => {

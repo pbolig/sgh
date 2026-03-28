@@ -316,3 +316,38 @@ class NotaAdhesiva(NotaAdhesivaBase):
     created_at: datetime
     class Config:
         from_attributes = True
+
+# --- SCHEMAS PARA PLANIFICACION (PAD) ---
+
+class PlanificacionBase(BaseModel):
+    materia_id: int
+    docente_id: Optional[int] = None
+    comision_id: Optional[int] = None
+    anio_lectivo: int
+    jurisdiccion: Optional[str] = None
+    instituto: Optional[str] = None
+    carrera: Optional[str] = None
+    anio_cursada: Optional[str] = None
+    modalidad: Optional[str] = None
+    carga_horaria: Optional[float] = None
+    marco_curricular: Optional[str] = None
+    correlatividades: Optional[str] = None
+    normativa: Optional[str] = None
+    unidades: Optional[str] = None
+    fichas: Optional[str] = None
+    cronograma: Optional[str] = None
+    evaluacion: Optional[str] = None
+    bibliografia: Optional[str] = None
+    practica_profesionalizante: Optional[str] = None
+    firmas: Optional[str] = None
+
+class PlanificacionCreate(PlanificacionBase):
+    pass
+
+class Planificacion(PlanificacionBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
