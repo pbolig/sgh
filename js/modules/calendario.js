@@ -1,8 +1,9 @@
 export const Calendario = {
-    currentView: 'annual', // 'annual' o 'monthly'
+    currentView: 'annual', // 'annual', 'monthly', 'docente'
     selectedMonthIdx: 0,
     calendarioId: null,
     currentYear: new Date().getFullYear(),
+    includePrivate: true, // Para el renderizado local (aunque el user pidió para PDF, conviene tenerlo aquí)
     db: {
         categories: [],
         events: {}, // key: YYYY-MM-DD, value: array de eventos
@@ -71,8 +72,22 @@ export const Calendario = {
                     <span class="cal-year-badge">${this.currentYear}</span>
                 </div>
                 <div class="cal-actions">
-                    ${this.currentView === 'monthly' ? `<button class="btn-secondary" onclick="Calendario.switchToAnnual()"><i class="fas fa-arrow-left"></i> Volver al Año</button>` : ''}
-                    <button class="btn-primary btn-export" onclick="Calendario.exportPDF()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
+                    <div class="view-selector-segmented">
+                        <label class="segmented-item">
+                            <input type="radio" name="cal-view" value="annual" ${this.currentView === 'annual' ? 'checked' : ''} onchange="Calendario.switchView('annual')">
+                            <span>Anual</span>
+                        </label>
+                        <label class="segmented-item">
+                            <input type="radio" name="cal-view" value="monthly" ${this.currentView === 'monthly' ? 'checked' : ''} onchange="Calendario.switchView('monthly')">
+                            <span>Mensual</span>
+                        </label>
+                        <label class="segmented-item">
+                            <input type="radio" name="cal-view" value="docente" ${this.currentView === 'docente' ? 'checked' : ''} onchange="Calendario.switchView('docente')">
+                            <span>Modo Docente</span>
+                        </label>
+                    </div>
+                    
+                    <button class="btn-primary btn-export" onclick="Calendario.showExportOptions()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
                     <div class="year-selector">
                         <button onclick="Calendario.changeYear(-1)">-</button>
                         <span>${this.currentYear}</span>
@@ -82,7 +97,7 @@ export const Calendario = {
             </div>
 
             <div class="calendario-main-layout">
-                <div class="cal-grid-container ${this.currentView === 'monthly' ? 'monthly-mode' : ''}" id="cal-grid-root">
+                <div class="cal-grid-container ${this.currentView === 'monthly' ? 'monthly-mode' : ''} ${this.currentView === 'docente' ? 'docente-mode' : ''}" id="cal-grid-root">
                     ${this.renderGrid()}
                 </div>
                 
@@ -141,6 +156,10 @@ export const Calendario = {
                         <label>Descripción (opcional):</label>
                         <textarea id="cal-event-desc" placeholder="Ej: Feriado Nacional, Exámenes finales..."></textarea>
                     </div>
+                    <div class="modal-desc-box checkbox-row">
+                        <input type="checkbox" id="cal-event-private">
+                        <label for="cal-event-private">Evento Privado (Solo personal)</label>
+                    </div>
                     <div class="modal-actions">
                          <button class="btn-danger" id="btn-clear-range" onclick="Calendario.clearRange()">Limpiar Rango</button>
                          <button class="btn-secondary" onclick="Calendario.closeModal()">Cancelar</button>
@@ -197,9 +216,7 @@ export const Calendario = {
                 MN.forEach((name, idx) => {
                     html += `
                         <div class="mcard glass-card">
-                            <div class="mname-link" onclick="Calendario.switchToMonthly(${idx})" title="Ver mes detalle">
-                                <div class="mname">${name}</div>
-                            </div>
+                            <div class="mname">${name}</div>
                             <div class="dcont-annual">
                                 ${DLABELS.map(d => `<div class="dlbl">${d[0]}</div>`).join('')}
                                 ${this.buildMonthGrid(this.currentYear, idx, false)}
@@ -207,6 +224,8 @@ export const Calendario = {
                         </div>
                     `;
                 });
+        } else if (this.currentView === 'docente') {
+            html = this.renderModoDocente();
         } else {
             html = `
                 <div class="mcard glass-card single-month">
@@ -300,16 +319,22 @@ export const Calendario = {
                     ${workloadBadge}
                     <div class="dstack">
                         ${evts.map(e => {
+                            const isPrivate = e.es_privado;
+                            const isHidden = isPrivate && !this.includePrivate;
+                            if (isHidden) return '';
+
                             const catNameEncoded = e.categoria.nombre.replace(/'/g, "&apos;");
-                            if (this.currentView === 'annual') {
-                                return `<span class="ddot" 
+                            const privateClass = isPrivate ? 'is-private' : '';
+                            
+                            if (this.currentView === 'annual' || this.currentView === 'docente') {
+                                return `<span class="ddot ${privateClass}" 
                                               style="background: ${e.categoria.color}" 
-                                              title="${e.descripcion || e.categoria.nombre}"
+                                              title="${(isPrivate ? '[PRIVADO] ' : '') + (e.descripcion || e.categoria.nombre)}"
                                               data-cat-name="${catNameEncoded}"></span>`;
                             }
-                            return `<span class="dtxt" 
-                                          title="${e.descripcion || e.categoria.nombre}" 
-                                          data-cat-name="${catNameEncoded}">${e.descripcion || e.categoria.nombre}</span>`;
+                            return `<span class="dtxt ${privateClass}" 
+                                          title="${(isPrivate ? '[PRIVADO] ' : '') + (e.descripcion || e.categoria.nombre)}" 
+                                          data-cat-name="${catNameEncoded}">${(isPrivate ? '🔒 ' : '') + (e.descripcion || e.categoria.nombre)}</span>`;
                         }).join('')}
                     </div>
                 </div>
@@ -369,6 +394,7 @@ export const Calendario = {
 
     async applyEvent(catId) {
         const desc = document.getElementById('cal-event-desc').value;
+        const isPrivate = document.getElementById('cal-event-private').checked;
         const dates = this.getDateRange(this.selStart, this.selEnd);
         
         try {
@@ -380,7 +406,8 @@ export const Calendario = {
                         calendario_id: this.calendarioId,
                         fecha: fecha,
                         categoria_id: catId,
-                        descripcion: desc
+                        descripcion: desc,
+                        es_privado: isPrivate
                     })
                 });
             });
@@ -437,20 +464,89 @@ export const Calendario = {
         return ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"][idx];
     },
 
+    switchView(view) {
+        this.currentView = view;
+        this.render();
+    },
+
     switchToMonthly(idx) {
         this.currentView = 'monthly';
         this.selectedMonthIdx = idx;
+        const radio = document.querySelector(`input[name="cal-view"][value="monthly"]`);
+        if (radio) radio.checked = true;
         this.render();
     },
 
     switchToAnnual() {
         this.currentView = 'annual';
+        const radio = document.querySelector(`input[name="cal-view"][value="annual"]`);
+        if (radio) radio.checked = true;
         this.render();
     },
 
     changeYear(delta) {
         this.currentYear += delta;
         this.render();
+    },
+
+    renderModoDocente() {
+        const MN = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+        const pages = [];
+        
+        for (let p = 0; p < 4; p++) {
+            let pageHtml = `<div class="docente-page glass-card">`;
+            for (let m = 0; m < 3; m++) {
+                const monthIdx = (p * 3) + m;
+                const monthName = MN[monthIdx];
+                
+                // Obtener eventos del mes para las referencias
+                const monthEvents = [];
+                const daysInMonth = new Date(this.currentYear, monthIdx + 1, 0).getDate();
+                for (let d = 1; d <= daysInMonth; d++) {
+                    const key = `${this.currentYear}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+                    const evs = this.db.events[key] || [];
+                    evs.forEach(e => {
+                        if (!e.es_privado || this.includePrivate) {
+                            monthEvents.push({ day: d, desc: e.descripcion || e.categoria.nombre });
+                        }
+                    });
+                }
+
+                // Generar renglones: tantos como ocupe el mes (aprox 6 semanas -> 6 renglones base o más)
+                // Usaremos un número fijo de renglones para que quede prolijo, por ejemplo 8.
+                const numLines = 8;
+                let refsHtml = '';
+                for (let i = 0; i < numLines; i++) {
+                    const evt = monthEvents[i];
+                    refsHtml += `
+                        <div class="ref-line">
+                            ${evt ? `<span class="ref-date">${evt.day}:</span> ${evt.desc}` : ''}
+                        </div>
+                    `;
+                }
+
+                pageHtml += `
+                    <div class="docente-row">
+                        <div class="docente-month-col">
+                            <div class="mname">${monthName}</div>
+                            <div class="dcont-annual">
+                                ${this.buildMonthGrid(this.currentYear, monthIdx, false)}
+                            </div>
+                        </div>
+                        <div class="docente-refs-col">
+                            ${refsHtml}
+                        </div>
+                    </div>
+                `;
+            }
+            pageHtml += `</div>`;
+            pages.push(pageHtml);
+        }
+        return `
+            <div id="docente-view-container">
+                ${pages.join('<div class="page-break-docente" style="margin-top: 2rem;"></div>')}
+            </div>
+        `;
     },
 
     async promptAddNote() {
@@ -477,7 +573,57 @@ export const Calendario = {
         this.render();
     },
 
-    async exportPDF() {
+    showExportOptions() {
+        const modal = document.getElementById('cal-modal-overlay');
+        const modalContent = modal.querySelector('.cal-modal');
+        
+        const originalContent = modalContent.innerHTML;
+        modalContent.innerHTML = `
+            <h3>Opciones de Exportación</h3>
+            <div class="modal-desc-box">
+                <label>Incluir eventos:</label>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;">
+                    <label style="font-weight: normal; cursor: pointer;">
+                        <input type="checkbox" id="export-public" checked> Institucionales (Públicos)
+                    </label>
+                    <label style="font-weight: normal; cursor: pointer;">
+                        <input type="checkbox" id="export-private" checked> Personales (Privados)
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                 <button class="btn-primary" onclick="Calendario.runExport()">Exportar PDF</button>
+                 <button class="btn-secondary" onclick="Calendario.closeModal()">Cancelar</button>
+            </div>
+        `;
+        
+        modal.classList.add('active');
+        
+        const originalClose = this.closeModal.bind(this);
+        this.closeModal = () => {
+             modalContent.innerHTML = originalContent;
+             this.closeModal = originalClose;
+             originalClose();
+        };
+    },
+
+    async runExport() {
+        const incPublic = document.getElementById('export-public').checked;
+        const incPrivate = document.getElementById('export-private').checked;
+        
+        if (!incPublic && !incPrivate) {
+            alert("Selecciona al menos un tipo de evento para exportar.");
+            return;
+        }
+
+        this.includePrivate = incPrivate;
+        // La lógica de exportación necesita saber qué incluir.
+        // Podríamos pasar estos filtros a exportPDF.
+        this.closeModal();
+        await this.exportPDF(incPublic, incPrivate);
+    },
+
+    async exportPDF(incPublic = true, incPrivate = true) {
         if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
             alert("Las librerías de PDF no están cargadas.");
             return;
@@ -490,7 +636,9 @@ export const Calendario = {
 
         const el = document.getElementById('calendario-container');
         const isAnnual = this.currentView === 'annual';
-        const captureTarget = isAnnual ? el : el.querySelector('.single-month');
+        const isDocente = this.currentView === 'docente';
+        let captureTarget = isAnnual ? el : el.querySelector('.single-month');
+        if (isDocente) captureTarget = document.getElementById('docente-view-container');
         
         el.classList.add('cal-pdf-mode');
         await new Promise(resolve => setTimeout(resolve, 400));
@@ -524,7 +672,22 @@ export const Calendario = {
                     if (exportBtn) exportBtn.style.display = 'none';
 
                     if (container) {
-                        if (isAnnual) {
+                        if (isDocente) {
+                            // Ajustes para exportación de Modo Docente (múltiples páginas)
+                            const docenteContainer = clonedDoc.getElementById('docente-view-container');
+                            if (docenteContainer) {
+                                docenteContainer.style.width = '210mm'; // A4 width
+                                docenteContainer.style.background = 'white';
+                                clonedDoc.querySelectorAll('.docente-page').forEach(page => {
+                                    page.style.width = '210mm';
+                                    page.style.height = '297mm';
+                                    page.style.boxShadow = 'none';
+                                    page.style.margin = '0';
+                                    page.style.padding = '15mm';
+                                    page.style.border = 'none';
+                                });
+                            }
+                        } else if (isAnnual) {
                             // --- AJUSTES VISTA ANUAL (VERTICAL) ---
                             const mainLayout = clonedDoc.querySelector('.calendario-main-layout');
                             const grid = clonedDoc.getElementById('calendario-grid');
@@ -611,25 +774,44 @@ export const Calendario = {
                 }
             });
 
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const canvasRatio = canvas.width / canvas.height;
-            
-            let finalWidth = printableWidth;
-            let finalHeight = printableWidth / canvasRatio;
+            if (!isDocente) {
+                const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                const canvasRatio = canvas.width / canvas.height;
+                
+                let finalWidth = printableWidth;
+                let finalHeight = printableWidth / canvasRatio;
 
-            if (finalHeight > printableHeight) {
-                finalHeight = printableHeight;
-                finalWidth = printableHeight * canvasRatio;
+                if (finalHeight > printableHeight) {
+                    finalHeight = printableHeight;
+                    finalWidth = printableHeight * canvasRatio;
+                }
+
+                const xOffset = margin + (printableWidth - finalWidth) / 2;
+                const yOffset = margin + (printableHeight - finalHeight) / 2;
+
+                pdf.addImage(imgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
+            } else {
+                // MODO DOCENTE: Múltiples páginas
+                // Capturamos cada página por separado (o usamos el canvas grande y lo troceamos)
+                // Es mejor capturar cada .docente-page individualmente para mejor calidad
+                const pages = el.querySelectorAll('.docente-page');
+                for (let i = 0; i < pages.length; i++) {
+                    if (i > 0) pdf.addPage('p', 'a4');
+                    
+                    const pageCanvas = await html2canvas(pages[i], {
+                        scale: 2.5,
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        logging: false
+                    });
+                    
+                    const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+                    pdf.addImage(imgData, 'JPEG', margin, margin, printableWidth, printableHeight);
+                }
             }
 
-            const xOffset = margin + (printableWidth - finalWidth) / 2;
-            const yOffset = margin + (printableHeight - finalHeight) / 2;
-
-            pdf.addImage(imgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
-
-            // --- HOJA 2+: DETALLES CRONOLÓGICOS (AGRUPADOS POR RANGOS) ---
             const rawEvents = [];
-            const targetMonths = isAnnual ? [...Array(12).keys()] : [this.selectedMonthIdx];
+            const targetMonths = (isAnnual || isDocente) ? [...Array(12).keys()] : [this.selectedMonthIdx];
             
             targetMonths.forEach(m => {
                 const days = new Date(this.currentYear, m + 1, 0).getDate();
@@ -637,11 +819,14 @@ export const Calendario = {
                     const key = `${this.currentYear}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                     if (this.db.events[key]) {
                         this.db.events[key].forEach(ev => {
-                            rawEvents.push({
-                                date: new Date(this.currentYear, m, d),
-                                cat: ev.categoria.nombre,
-                                desc: ev.descripcion || '-'
-                            });
+                            const isEvPrivate = ev.es_privado;
+                            if ((isEvPrivate && incPrivate) || (!isEvPrivate && incPublic)) {
+                                rawEvents.push({
+                                    date: new Date(this.currentYear, m, d),
+                                    cat: ev.categoria.nombre,
+                                    desc: ev.descripcion || '-'
+                                });
+                            }
                         });
                     }
                 }

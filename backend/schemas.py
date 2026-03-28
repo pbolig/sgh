@@ -293,6 +293,7 @@ class CalendarioEventoBase(BaseModel):
     fecha: str
     categoria_id: int
     descripcion: Optional[str] = None
+    es_privado: Optional[bool] = False
 
 class CalendarioEventoCreate(CalendarioEventoBase):
     pass

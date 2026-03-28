@@ -2018,7 +2018,6 @@ textarea:focus {
 /* Tarjetas de Mes */
 .mcard {
     padding: 1.5rem;
-    cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -2656,4 +2655,171 @@ textarea:focus {
     background: white !important;
     border: 1px solid black !important;
     color: black !important;
+}
+/* ----------------------------------------------------------------- */
+/* UTILERÍAS DE GLASSMORPISM                                         */
+/* ----------------------------------------------------------------- */
+.glass-card {
+    background: rgba(30, 41, 59, 0.45);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    border-radius: 12px;
+}
+
+/* ----------------------------------------------------------------- */
+/* SELECTOR DE VISTA SEGMENTADO                                      */
+/* ----------------------------------------------------------------- */
+.view-selector-segmented {
+    display: flex;
+    background: rgba(15, 23, 42, 0.5);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    gap: 4px;
+}
+
+.segmented-item {
+    cursor: pointer;
+    position: relative;
+}
+
+.segmented-item input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.segmented-item span {
+    display: inline-block;
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+    transition: all 0.2s ease;
+}
+
+.segmented-item input:checked + span {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.segmented-item:hover span {
+    color: white;
+}
+
+/* ----------------------------------------------------------------- */
+/* MODO DOCENTE                                                      */
+/* ----------------------------------------------------------------- */
+.cal-grid-container.docente-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.docente-page {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: 2.5rem;
+    color: #cbd5e1;
+    margin-bottom: 2rem;
+    min-height: 297mm; /* Proporción A4 */
+}
+
+.docente-row {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 1rem;
+}
+
+.docente-row:last-child { border-bottom: none; }
+
+.docente-month-col .mname {
+    color: white;
+    border-left-color: var(--primary);
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+}
+
+.docente-month-col .dcont-annual {
+    transform: scale(0.9);
+    transform-origin: top left;
+}
+
+.docente-month-col .dcell {
+    background: rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+}
+
+.docente-month-col .dcell.today {
+    border: 1px solid #ffffff !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.docente-refs-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 2rem;
+}
+
+.ref-line {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    height: 1.8rem;
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    color: #94a3b8;
+    padding: 0 0.5rem;
+}
+
+.ref-line .ref-date {
+    font-weight: bold;
+    margin-right: 0.5rem;
+    color: var(--primary);
+    min-width: 30px;
+}
+
+/* Estilos para el Checkbox de Privacidad en el Modal */
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    cursor: pointer;
+}
+
+.checkbox-row input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.checkbox-row label {
+    font-size: 0.9rem;
+    color: #cbd5e1;
+    cursor: pointer;
+}
+
+/* Ocultar eventos privados si se desea */
+.ddot.is-private {
+    border: 1px solid #fff;
+    box-shadow: 0 0 5px rgba(255,255,255,0.5);
+}
+
+.dtxt.is-private {
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.dtxt.is-private::before {
+    content: '🔒 ';
 }

@@ -193,6 +193,7 @@ class CalendarioEvento(Base):
     fecha = Column(String, index=True) # Formato YYYY-MM-DD
     categoria_id = Column(Integer, ForeignKey("calendario_categorias.id"))
     descripcion = Column(Text, nullable=True)
+    es_privado = Column(Boolean, default=False)
 
     categoria = relationship("CalendarioCategoria")
 
