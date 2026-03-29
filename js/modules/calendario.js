@@ -67,34 +67,52 @@ export const Calendario = {
             <div id="calendario-container">
                 <div id="cal-tooltip" class="cal-tooltip"></div>
                 <div class="calendario-header glass-card">
-                <div class="cal-title-box">
-                    <h1 class="premium-title">${this.currentView === 'annual' ? 'Planificación Anual' : 'Mes: ' + this.getMonthName(this.selectedMonthIdx)}</h1>
-                    <span class="cal-year-badge">${this.currentYear}</span>
-                </div>
-                <div class="cal-actions">
-                    <div class="view-selector-segmented">
-                        <label class="segmented-item">
-                            <input type="radio" name="cal-view" value="annual" ${this.currentView === 'annual' ? 'checked' : ''} onchange="Calendario.switchView('annual')">
-                            <span>Anual</span>
-                        </label>
-                        <label class="segmented-item">
-                            <input type="radio" name="cal-view" value="monthly" ${this.currentView === 'monthly' ? 'checked' : ''} onchange="Calendario.switchView('monthly')">
-                            <span>Mensual</span>
-                        </label>
-                        <label class="segmented-item">
-                            <input type="radio" name="cal-view" value="docente" ${this.currentView === 'docente' ? 'checked' : ''} onchange="Calendario.switchView('docente')">
-                            <span>Modo Docente</span>
-                        </label>
+                    <div class="header-row top-row">
+                        <div class="cal-title-box">
+                            <h1 class="premium-title">${this.currentView === 'annual' ? 'Planificación Anual' : 'Mes: ' + this.getMonthName(this.selectedMonthIdx)}</h1>
+                            <span class="cal-year-badge">${this.currentYear}</span>
+                        </div>
+                        
+                        <div class="search-group-wrapper">
+                            <div class="search-input-wrapper">
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" id="cal-search-input" placeholder="Buscar eventos, categorías..." oninput="Calendario.handleSearch(this.value)" value="${this.lastSearch || ''}">
+                                <button class="btn-clear-search ${this.lastSearch ? '' : 'hidden'}" onclick="Calendario.clearSearch()">×</button>
+                            </div>
+                            <button class="btn-sync-holidays" onclick="Calendario.syncHolidays()" title="Cargar automáticamente feriados nacionales y locales 2026">
+                                <i class="fas fa-flag"></i> Feriados Argentina
+                            </button>
+                        </div>
                     </div>
-                    
-                    <button class="btn-primary btn-export" onclick="Calendario.showExportOptions()"><i class="fas fa-file-pdf"></i> Exportar PDF</button>
-                    <div class="year-selector">
-                        <button onclick="Calendario.changeYear(-1)">-</button>
-                        <span>${this.currentYear}</span>
-                        <button onclick="Calendario.changeYear(1)">+</button>
+
+                    <div class="header-row bottom-row">
+                        <div class="view-selector-segmented">
+                            <label class="segmented-item">
+                                <input type="radio" name="cal-view" value="annual" ${this.currentView === 'annual' ? 'checked' : ''} onchange="Calendario.switchView('annual')">
+                                <span>Anual</span>
+                            </label>
+                            <label class="segmented-item">
+                                <input type="radio" name="cal-view" value="monthly" ${this.currentView === 'monthly' ? 'checked' : ''} onchange="Calendario.switchView('monthly')">
+                                <span>Mensual</span>
+                            </label>
+                            <label class="segmented-item">
+                                <input type="radio" name="cal-view" value="docente" ${this.currentView === 'docente' ? 'checked' : ''} onchange="Calendario.switchView('docente')">
+                                <span>Modo Docente</span>
+                            </label>
+                        </div>
+                        
+                        <div class="header-actions-right">
+                            <button class="btn-primary btn-export" onclick="Calendario.showExportOptions()">
+                                <i class="fas fa-file-pdf"></i> Exportar PDF
+                            </button>
+                            <div class="year-selector">
+                                <button onclick="Calendario.changeYear(-1)">-</button>
+                                <span>${this.currentYear}</span>
+                                <button onclick="Calendario.changeYear(1)">+</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
 
             <div class="calendario-main-layout">
                 <div class="cal-grid-container ${this.currentView === 'monthly' ? 'monthly-mode' : ''} ${this.currentView === 'docente' ? 'docente-mode' : ''}" id="cal-grid-root">
@@ -144,7 +162,7 @@ export const Calendario = {
 
             <div id="cal-modal-overlay" class="modal-overlay" onclick="Calendario.closeModal()">
                 <div class="cal-modal glass-card" onclick="event.stopPropagation()">
-                    <h3>Asignar Categoría</h3>
+                    <h2 class="premium-title">Asignar Categoría</h2>
                     <div class="modal-cat-grid">
                         ${this.db.categories.map(c => `
                             <button class="modal-cat-btn" onclick="Calendario.applyEvent(${c.id})" style="border-left: 5px solid ${c.color}">
@@ -156,7 +174,7 @@ export const Calendario = {
                         <label>Descripción (opcional):</label>
                         <textarea id="cal-event-desc" placeholder="Ej: Feriado Nacional, Exámenes finales..."></textarea>
                     </div>
-                    <div class="modal-desc-box checkbox-row">
+                    <div class="modal-private-row">
                         <input type="checkbox" id="cal-event-private">
                         <label for="cal-event-private">Evento Privado (Solo personal)</label>
                     </div>
@@ -172,37 +190,64 @@ export const Calendario = {
     },
 
     initTooltipEvents() {
-        const container = document.getElementById('calendario-container');
-        if (!container) return;
+        if (window._calTooltipInitialized) return;
+        window._calTooltipInitialized = true;
 
-        container.addEventListener('mouseover', (e) => {
-            const target = e.target.closest('.dtxt, .ddot');
-            if (target) {
-                const tooltip = document.getElementById('cal-tooltip');
-                if (tooltip) {
-                    const desc = target.getAttribute('title');
-                    const cat = target.dataset.catName || 'Evento';
-                    tooltip.innerHTML = `<h4>${cat}</h4><div>${desc}</div>`;
-                    tooltip.classList.add('active');
-                }
-            }
-        });
-
-        container.addEventListener('mousemove', (e) => {
+        document.body.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('.dcell');
+            if (!cell || !cell.dataset.events) return;
+            
             const tooltip = document.getElementById('cal-tooltip');
-            if (tooltip && tooltip.classList.contains('active')) {
-                const x = e.clientX + 15;
-                const y = e.clientY + 15;
-                tooltip.style.left = x + 'px';
-                tooltip.style.top = y + 'px';
-            }
+            if (!tooltip) return;
+
+            try {
+                const eventsData = JSON.parse(cell.dataset.events);
+                if (eventsData.length === 0) return;
+
+                const dateStr = cell.dataset.dateLabel || "";
+                let html = `<div class="tooltip-header">
+                                <span>${dateStr}</span>
+                                <span>${eventsData.length} ${eventsData.length === 1 ? 'Evento' : 'Eventos'}</span>
+                            </div>`;
+                
+                eventsData.forEach(ev => {
+                    html += `
+                        <div class="event-item">
+                            <div class="event-color" style="background: ${ev.color}"></div>
+                            <div class="event-info">
+                                <div class="event-cat">${ev.cat}</div>
+                                <div class="event-desc">${ev.desc}</div>
+                                ${ev.private ? '<div class="event-privacy">🔒 Privado</div>' : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                tooltip.innerHTML = html;
+                tooltip.classList.add('active');
+            } catch (err) { }
         });
 
-        container.addEventListener('mouseout', (e) => {
-            const target = e.target.closest('.dtxt, .ddot');
-            if (target) {
+        document.body.addEventListener('mouseout', (e) => {
+            const cell = e.target.closest('.dcell');
+            if (cell) {
                 const tooltip = document.getElementById('cal-tooltip');
                 if (tooltip) tooltip.classList.remove('active');
+            }
+        });
+
+        document.body.addEventListener('mousemove', (e) => {
+            const tooltip = document.getElementById('cal-tooltip');
+            if (tooltip && tooltip.classList.contains('active')) {
+                const rect = tooltip.getBoundingClientRect();
+                let x = e.clientX + 15;
+                let y = e.clientY + 15;
+
+                if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - 15;
+                if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - 15;
+
+                tooltip.style.left = x + 'px';
+                tooltip.style.top = y + 'px';
             }
         });
     },
@@ -243,31 +288,11 @@ export const Calendario = {
         return html;
     },
 
-    buildMonthGrid(year, mi, interactive) {
+    buildMonthGrid(year, mi, interactive, isDocente = false) {
         let html = '';
         const tot = new Date(year, mi + 1, 0).getDate();
+        const isAnnual = this.currentView === 'annual';
         
-        // Calcular primer día (buscamos el primer Lun-Vie)
-        let firstCol = 0;
-        const firstDayOfMonth = new Date(year, mi, 1).getDay(); // 0=Dom, 1=Lun...
-        if (firstDayOfMonth >= 1 && firstDayOfMonth <= 5) {
-            firstCol = firstDayOfMonth - 1;
-        } else if (firstDayOfMonth === 0) { // Dom -> Lun es 0 espacios? No, Lun es col 0. 
-            firstCol = 0; // Si el 1 es Dom, el Lunes es el 2. 
-        } else if (firstDayOfMonth === 6) { // Sab -> Lun es col 0.
-             firstCol = 0;
-        }
-
-        // Ajuste real: ¿Cuantos huecos antes del primer lunes-viernes del mes?
-        // En el proyecto original:
-        /*
-        let firstCol = 0;
-        for (let d = 1; d <= 7; d++) {
-            const wd = new Date(year, mi, d).getDay();
-            if (wd >= 1 && wd <= 5) { firstCol = wd - 1; break; }
-        }
-        */
-        // Seguiremos esa lógica:
         let fCol = 0;
         for (let d = 1; d <= 7; d++) {
             const wd = new Date(year, mi, d).getDay();
@@ -284,13 +309,15 @@ export const Calendario = {
         for (let d = 1; d <= tot; d++) {
             const date = new Date(year, mi, d);
             const dow = date.getDay();
-            if (dow < 1 || dow > 5) continue; // Saliendo Sab/Dom
+            if (dow < 1 || dow > 5) continue;
 
             const dateKey = `${year}-${String(mi+1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const isToday = dateKey === todayStr;
             const evts = this.db.events[dateKey] || [];
             
             let style = '';
+            const dayEvents = [];
+
             if (evts.length > 0) {
                 const colors = evts.map(e => e.categoria.color);
                 if (colors.length === 1) {
@@ -300,10 +327,20 @@ export const Calendario = {
                     const stops = colors.map((c, i) => `${c}44 ${i * pct}%, ${c}44 ${(i + 1) * pct}%`).join(', ');
                     style = `background: linear-gradient(to bottom, ${stops}); border-left: 3px solid ${colors[0]};`;
                 }
+
+                evts.forEach(e => {
+                    dayEvents.push({
+                        cat: e.categoria.nombre,
+                        desc: e.descripcion || 'Sin descripción',
+                        color: e.categoria.color,
+                        private: e.es_privado
+                    });
+                });
             }
 
             const cellId = `${year}-${mi}-${d}`;
             const isSelected = this.isInRange(cellId);
+            const dateLabel = `${d} de ${this.getMonthName(mi)} de ${year}`;
             
             // Carga horaria predictiva
             const diasNom = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -311,31 +348,29 @@ export const Calendario = {
             const classCount = this.db.workload[diaNombre] || 0;
             const workloadBadge = interactive && classCount > 0 ? `<div class="workload-badge" title="Carga horaria: ${classCount} HS (módulos de 40 min)">${classCount} HS</div>` : '';
 
+            const eventsAttr = dayEvents.length > 0 ? `data-events='${JSON.stringify(dayEvents).replace(/'/g, "&apos;")}'` : "";
+
+            let dotsHtml = '';
+            const showBadge = (isDocente || isAnnual) && evts.length > 0;
+            const docenteBadge = showBadge ? `<span class="docente-evt-badge" title="${evts.length} eventos">${evts.length}</span>` : '';
+
+            if (!isDocente && !isAnnual) {
+                dotsHtml = evts.map(e => {
+                    const privateClass = e.es_privado ? 'is-private' : '';
+                    return `<span class="dtxt ${privateClass}">${(e.es_privado ? '🔒 ' : '') + (e.descripcion || e.categoria.nombre)}</span>`;
+                }).join('');
+            }
+
             html += `
                 <div class="dcell ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" 
                      style="${style}"
+                     data-date-label="${dateLabel}"
+                     ${eventsAttr}
                      onclick="Calendario.handleCellClick(event, '${cellId}')">
                     <span class="dnum">${d}</span>
                     ${workloadBadge}
                     <div class="dstack">
-                        ${evts.map(e => {
-                            const isPrivate = e.es_privado;
-                            const isHidden = isPrivate && !this.includePrivate;
-                            if (isHidden) return '';
-
-                            const catNameEncoded = e.categoria.nombre.replace(/'/g, "&apos;");
-                            const privateClass = isPrivate ? 'is-private' : '';
-                            
-                            if (this.currentView === 'annual' || this.currentView === 'docente') {
-                                return `<span class="ddot ${privateClass}" 
-                                              style="background: ${e.categoria.color}" 
-                                              title="${(isPrivate ? '[PRIVADO] ' : '') + (e.descripcion || e.categoria.nombre)}"
-                                              data-cat-name="${catNameEncoded}"></span>`;
-                            }
-                            return `<span class="dtxt ${privateClass}" 
-                                          title="${(isPrivate ? '[PRIVADO] ' : '') + (e.descripcion || e.categoria.nombre)}" 
-                                          data-cat-name="${catNameEncoded}">${(isPrivate ? '🔒 ' : '') + (e.descripcion || e.categoria.nombre)}</span>`;
-                        }).join('')}
+                        ${dotsHtml}${docenteBadge}
                     </div>
                 </div>
             `;
@@ -489,6 +524,137 @@ export const Calendario = {
         this.render();
     },
 
+    handleSearch(query) {
+        this.lastSearch = query;
+        const cells = document.querySelectorAll('.dcell');
+        const q = (query || "").toLowerCase().trim();
+
+        // Mostrar/ocultar botón de borrar
+        const clearBtn = document.querySelector('.btn-clear-search');
+        if (clearBtn) {
+            if (q.length > 0) {
+                clearBtn.classList.remove('hidden');
+            } else {
+                clearBtn.classList.add('hidden');
+            }
+        }
+
+        cells.forEach(cell => {
+            cell.classList.remove('search-highlight');
+            if (q.length < 2) return;
+
+            const eventsData = cell.dataset.events;
+            const dateLabel = cell.dataset.dateLabel || "";
+            const dayNum = cell.querySelector('.dnum')?.innerText || "";
+
+            let match = false;
+            // Búsqueda en fecha/número
+            if (dateLabel.toLowerCase().includes(q) || dayNum === q) match = true;
+            
+            // Búsqueda en eventos
+            if (!match && eventsData) {
+                try {
+                    const evts = JSON.parse(eventsData);
+                    if (evts.some(e => e.cat.toLowerCase().includes(q) || e.desc.toLowerCase().includes(q))) {
+                        match = true;
+                    }
+                } catch(e) {}
+            }
+
+            if (match) {
+                cell.classList.add('search-highlight');
+            }
+        });
+    },
+
+    clearSearch() {
+        this.lastSearch = '';
+        const input = document.getElementById('cal-search-input');
+        if (input) input.value = '';
+        this.handleSearch('');
+    },
+
+    async syncHolidays() {
+        const year = this.currentYear;
+        const btn = document.querySelector('.btn-sync-holidays');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+        }
+        
+        try {
+            // 1. Obtener feriados nacionales
+            const response = await fetch(`https://api.argentinadatos.com/v1/feriados/${year}`);
+            if (!response.ok) throw new Error("API Feriados no disponible");
+            const data = await response.json();
+            
+            // 2. Asegurar categoría "Feriado"
+            let catFeriado = this.db.categories.find(c => (c.nombre || c.name || "").toLowerCase().includes('feriado'));
+            
+            if (!catFeriado) {
+                const newCat = await fetch(`/api/calendario_categorias`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ nombre: 'Feriado', color: '#ef4444' })
+                }).then(r => r.json());
+                this.db.categories.push(newCat);
+                catFeriado = newCat;
+            }
+
+            // 3. Preparar lista total
+            const allHolidays = data.map(f => ({
+                fecha: f.fecha,
+                desc: f.nombre
+            }));
+
+            // Agregar locales estratégicos (Santa Fe / Rosario)
+            allHolidays.push(
+                { fecha: `${year}-11-15`, desc: 'Fundación de Santa Fe (Provincial)' },
+                { fecha: `${year}-10-07`, desc: 'Día de la Virgen del Rosario (Local Rosario)' }
+            );
+
+            // 4. Guardar en DB (Solo si no existen)
+            let nuevos = 0;
+            const promises = allHolidays.map(h => {
+                const dayEvts = this.db.events[h.fecha] || [];
+                const exist = dayEvts.some(e => e.descripcion === h.desc);
+                
+                if (!exist) {
+                    nuevos++;
+                    return fetch(`/api/calendario_eventos`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            calendario_id: this.calendarioId,
+                            fecha: h.fecha,
+                            categoria_id: catFeriado.id,
+                            descripcion: h.desc,
+                            es_privado: false
+                        })
+                    });
+                }
+            }).filter(p => p);
+
+            if (promises.length > 0) {
+                await Promise.all(promises);
+                alert(`¡Sincronización completa! Se agregaron ${nuevos} feriados.`);
+                await this.loadData();
+                this.render();
+            } else {
+                alert("Los feriados ya estaban cargados.");
+            }
+
+        } catch (error) {
+            console.error("Error sincronizando feriados:", error);
+            alert("Error: No se pudieron cargar los feriados.");
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-flag"></i> Feriados Argentina';
+            }
+        }
+    },
+
     renderModoDocente() {
         const MN = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
         const pages = [];
@@ -505,24 +671,33 @@ export const Calendario = {
                 for (let d = 1; d <= daysInMonth; d++) {
                     const key = `${this.currentYear}-${String(monthIdx + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                     const evs = this.db.events[key] || [];
-                    evs.forEach(e => {
-                        if (!e.es_privado || this.includePrivate) {
+                    const filteredEvts = evs.filter(e => !e.es_privado || this.includePrivate);
+                    if (filteredEvts.length > 0) {
+                        // Si hay varios eventos el mismo día, los listamos por separado o juntos?
+                        // Los listaremos por separado para que el docente tenga el detalle.
+                        filteredEvts.forEach(e => {
                             monthEvents.push({ day: d, desc: e.descripcion || e.categoria.nombre });
-                        }
-                    });
+                        });
+                    }
                 }
 
-                // Generar renglones: tantos como ocupe el mes (aprox 6 semanas -> 6 renglones base o más)
-                // Usaremos un número fijo de renglones para que quede prolijo, por ejemplo 8.
-                const numLines = 8;
+                // Generar renglones: los que entren o hasta un máximo razonable para evitar saturación
+                // Pero el CSS limitará la altura del contenedor.
                 let refsHtml = '';
-                for (let i = 0; i < numLines; i++) {
-                    const evt = monthEvents[i];
+                monthEvents.forEach(evt => {
                     refsHtml += `
                         <div class="ref-line">
-                            ${evt ? `<span class="ref-date">${evt.day}:</span> ${evt.desc}` : ''}
+                            <span class="ref-date">${evt.day}:</span>
+                            <span class="ref-desc">${evt.desc}</span>
                         </div>
                     `;
+                });
+
+                // Si no hay eventos, podemos poner algunos renglones vacíos para notas manuales.
+                if (monthEvents.length < 5) {
+                    for (let i = monthEvents.length; i < 8; i++) {
+                         refsHtml += `<div class="ref-line"></div>`;
+                    }
                 }
 
                 pageHtml += `
@@ -530,7 +705,7 @@ export const Calendario = {
                         <div class="docente-month-col">
                             <div class="mname">${monthName}</div>
                             <div class="dcont-annual">
-                                ${this.buildMonthGrid(this.currentYear, monthIdx, false)}
+                                ${this.buildMonthGrid(this.currentYear, monthIdx, false, true)}
                             </div>
                         </div>
                         <div class="docente-refs-col">
@@ -624,7 +799,7 @@ export const Calendario = {
     },
 
     async exportPDF(incPublic = true, incPrivate = true) {
-        if (typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+        if (typeof html2canvas === 'undefined' || (typeof jspdf === 'undefined' && typeof window.jspdf === 'undefined')) {
             alert("Las librerías de PDF no están cargadas.");
             return;
         }
@@ -637,31 +812,44 @@ export const Calendario = {
         const el = document.getElementById('calendario-container');
         const isAnnual = this.currentView === 'annual';
         const isDocente = this.currentView === 'docente';
+        
         let captureTarget = isAnnual ? el : el.querySelector('.single-month');
         if (isDocente) captureTarget = document.getElementById('docente-view-container');
         
-        el.classList.add('cal-pdf-mode');
-        await new Promise(resolve => setTimeout(resolve, 400));
+        if (!captureTarget) {
+            alert("No se encontró el elemento a exportar.");
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            return;
+        }
+
+        document.body.classList.add('cal-pdf-mode');
+        document.body.style.backgroundColor = 'white';
+        await new Promise(resolve => setTimeout(resolve, 600));
 
         try {
-            const { jsPDF } = window.jspdf;
-            const orientation = isAnnual ? 'p' : 'l';
-            const pdf = new jsPDF({ orientation: orientation, unit: 'mm', format: 'a4' });
+            const jsPDFConstructor = window.jspdf ? window.jspdf.jsPDF : jspdf.jsPDF;
+            // Modo Docente y Anual siempre Vertical (p), Mensual Apaisado (l)
+            const orientation = (isAnnual || isDocente) ? 'p' : 'l';
+            const pdf = new jsPDFConstructor({ orientation, unit: 'mm', format: 'a4' });
             
             const pageWidth = pdf.internal.pageSize.getWidth();
             const pageHeight = pdf.internal.pageSize.getHeight();
-            const margin = 10; // 1cm margin
+            const margin = 10;
             const printableWidth = pageWidth - (margin * 2);
             const printableHeight = pageHeight - (margin * 2);
 
             // --- HOJA 1: RESUMEN VISUAL ---
-            const canvas = await html2canvas(captureTarget, {
-                scale: 2.5,
-                useCORS: true,
-                backgroundColor: '#ffffff',
-                logging: false,
-                onclone: (clonedDoc) => {
-                    const container = clonedDoc.getElementById('calendario-container');
+            let canvas = null;
+            if (!isDocente) {
+                canvas = await html2canvas(captureTarget, {
+                    scale: 2,
+                    useCORS: true,
+                    backgroundColor: '#ffffff',
+                    logging: false,
+                    onclone: (clonedDoc) => {
+                        clonedDoc.body.style.background = 'white';
+                        const container = clonedDoc.getElementById('calendario-container');
                     const sidebar = clonedDoc.querySelector('.cal-sidebar');
                     const yearSelector = clonedDoc.querySelector('.year-selector');
                     const exportBtn = clonedDoc.querySelector('.btn-export');
@@ -773,8 +961,9 @@ export const Calendario = {
                     }
                 }
             });
+        }
 
-            if (!isDocente) {
+        if (!isDocente && canvas) {
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
                 const canvasRatio = canvas.width / canvas.height;
                 
@@ -790,23 +979,29 @@ export const Calendario = {
                 const yOffset = margin + (printableHeight - finalHeight) / 2;
 
                 pdf.addImage(imgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
-            } else {
+            } else if (isDocente) {
                 // MODO DOCENTE: Múltiples páginas
-                // Capturamos cada página por separado (o usamos el canvas grande y lo troceamos)
-                // Es mejor capturar cada .docente-page individualmente para mejor calidad
-                const pages = el.querySelectorAll('.docente-page');
+                const pages = document.querySelectorAll('.docente-page');
+                if (pages.length === 0) throw new Error("No se encontraron páginas del Modo Docente");
+
                 for (let i = 0; i < pages.length; i++) {
-                    if (i > 0) pdf.addPage('p', 'a4');
+                    if (i > 0) pdf.addPage('a4', 'p');
                     
                     const pageCanvas = await html2canvas(pages[i], {
-                        scale: 2.5,
+                        scale: 2, 
                         useCORS: true,
                         backgroundColor: '#ffffff',
-                        logging: false
+                        logging: false,
+                        onclone: (clonedDoc) => {
+                            clonedDoc.body.style.background = 'white';
+                        },
+                        width: pages[i].offsetWidth,
+                        height: pages[i].offsetHeight
                     });
                     
                     const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
-                    pdf.addImage(imgData, 'JPEG', margin, margin, printableWidth, printableHeight);
+                    // Como el CSS ya tiene los márgenes de 10mm, pegamos a la página completa (210x297)
+                    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
                 }
             }
 
@@ -875,7 +1070,7 @@ export const Calendario = {
                 return { label, cat: range.cat, desc: range.desc };
             });
 
-            if (finalEventRows.length > 0) {
+            if (finalEventRows.length > 0 && !isDocente) {
                 pdf.addPage(orientation, 'a4');
                 pdf.setFontSize(16);
                 pdf.setTextColor(40);
@@ -890,27 +1085,46 @@ export const Calendario = {
                 pdf.setFillColor(240, 240, 240);
                 pdf.rect(margin, y - 5, printableWidth, 7, 'F');
                 pdf.text("FECHA", margin + 2, y);
-                pdf.text("CATEGORÍA", margin + 68, y);
-                pdf.text("DETALLE DEL EVENTO", margin + 118, y);
+                pdf.text("CATEGORÍA", margin + 62, y);
+                pdf.text("DETALLE DEL EVENTO", margin + 107, y);
                 
                 y += 10;
                 pdf.setFont("helvetica", "normal");
 
+                const detailWidth = printableWidth - 109;
+
                 finalEventRows.forEach(ev => {
-                    const splitDesc = pdf.splitTextToSize(ev.desc, printableWidth - 122);
-                    const rowHeight = (splitDesc.length * 5) + 4;
+                    // Dividir texto por ancho, pero también forzar ruptura si hay palabras muy largas
+                    let rawDesc = ev.desc || "-";
+                    let splitDesc = pdf.splitTextToSize(rawDesc, detailWidth);
+                    
+                    // Verificación extra: si alguna línea sigue siendo más ancha que la celda (ocurre con hilos sin espacios)
+                    // jsPDF splitTextToSize a veces falla con hilos infinitos. Forzamos un wrap manual si es necesario.
+                    let processedLines = [];
+                    splitDesc.forEach(line => {
+                        if (pdf.getTextWidth(line) > detailWidth) {
+                             // Ruptura ruda por caracteres
+                             let charsPerLine = Math.floor(detailWidth / (pdf.getTextWidth('A') / 'A'.length)) - 2; 
+                             for (let i = 0; i < line.length; i += charsPerLine) {
+                                 processedLines.push(line.substring(i, i + charsPerLine));
+                             }
+                        } else {
+                            processedLines.push(line);
+                        }
+                    });
+
+                    const rowHeight = (processedLines.length * 5) + 4;
 
                     if (y + rowHeight > pageHeight - margin - 5) {
                         pdf.addPage(orientation, 'a4');
                         y = margin + 15;
                         
-                        // Repetir cabecera en nueva página
                         pdf.setFont("helvetica", "bold");
                         pdf.setFillColor(240, 240, 240);
                         pdf.rect(margin, y - 5, printableWidth, 7, 'F');
                         pdf.text("FECHA", margin + 2, y);
-                        pdf.text("CATEGORÍA", margin + 68, y);
-                        pdf.text("DETALLE DEL EVENTO", margin + 118, y);
+                        pdf.text("CATEGORÍA", margin + 62, y);
+                        pdf.text("DETALLE DEL EVENTO", margin + 107, y);
                         y += 10;
                         pdf.setFont("helvetica", "normal");
                     }
@@ -919,21 +1133,23 @@ export const Calendario = {
                     pdf.line(margin, y - 5, pageWidth - margin, y - 5);
 
                     pdf.text(ev.label, margin + 2, y);
-                    pdf.text(ev.cat, margin + 68, y);
-                    pdf.text(splitDesc, margin + 118, y);
+                    pdf.text(ev.cat, margin + 62, y);
+                    pdf.text(processedLines, margin + 107, y);
 
                     y += rowHeight;
                 });
             }
 
-            const fileName = isAnnual ? `Planificacion_${this.currentYear}.pdf` : `Planificacion_${this.getMonthName(this.selectedMonthIdx)}_${this.currentYear}.pdf`;
+            let fileName = isAnnual ? `Planificacion_${this.currentYear}.pdf` : `Planificacion_${this.getMonthName(this.selectedMonthIdx)}_${this.currentYear}.pdf`;
+            if (isDocente) fileName = `calen_docente_${this.currentYear}.pdf`;
             pdf.save(fileName);
 
         } catch (error) {
             console.error("PDF Export Error:", error);
             alert("Error al generar el PDF. Verifica que html2canvas y jsPDF estén cargados.");
         } finally {
-            el.classList.remove('cal-pdf-mode');
+            document.body.classList.remove('cal-pdf-mode');
+            document.body.style.backgroundColor = '';
             btn.innerHTML = originalText;
             btn.disabled = false;
         }
