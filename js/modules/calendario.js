@@ -69,7 +69,18 @@ export const Calendario = {
                 <div class="calendario-header glass-card">
                     <div class="header-row top-row">
                         <div class="cal-title-box">
-                            <h1 class="premium-title">${this.currentView === 'annual' ? 'Planificación Anual' : 'Mes: ' + this.getMonthName(this.selectedMonthIdx)}</h1>
+                            ${this.currentView === 'annual' 
+                                ? '<h1 class="premium-title">Planificación Anual</h1>' 
+                                : `
+                                    <div class="month-selector-wrapper">
+                                        <select class="select-month-premium" onchange="Calendario.switchToMonthly(this.value)">
+                                            ${["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"].map((m, i) => `
+                                                <option value="${i}" ${i === this.selectedMonthIdx ? 'selected' : ''}>${m}</option>
+                                            `).join('')}
+                                        </select>
+                                    </div>
+                                `
+                            }
                             <span class="cal-year-badge">${this.currentYear}</span>
                         </div>
                         
@@ -78,6 +89,7 @@ export const Calendario = {
                                 <i class="fas fa-search search-icon"></i>
                                 <input type="text" id="cal-search-input" placeholder="Buscar eventos, categorías..." oninput="Calendario.handleSearch(this.value)" value="${this.lastSearch || ''}">
                                 <button class="btn-clear-search ${this.lastSearch ? '' : 'hidden'}" onclick="Calendario.clearSearch()">×</button>
+                                <div id="cal-search-results" class="search-results-balloon hidden"></div>
                             </div>
                             <button class="btn-sync-holidays" onclick="Calendario.syncHolidays()" title="Cargar automáticamente feriados nacionales y locales 2026">
                                 <i class="fas fa-flag"></i> Feriados Argentina
@@ -506,7 +518,7 @@ export const Calendario = {
 
     switchToMonthly(idx) {
         this.currentView = 'monthly';
-        this.selectedMonthIdx = idx;
+        this.selectedMonthIdx = parseInt(idx);
         const radio = document.querySelector(`input[name="cal-view"][value="monthly"]`);
         if (radio) radio.checked = true;
         this.render();
@@ -524,11 +536,18 @@ export const Calendario = {
         this.render();
     },
 
+    normalizeText(text) {
+        if (!text) return "";
+        return text.toString().toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    },
+
     handleSearch(query) {
         this.lastSearch = query;
-        const cells = document.querySelectorAll('.dcell');
-        const q = (query || "").toLowerCase().trim();
-
+        const q = this.normalizeText(query).trim();
+        const resultsBox = document.getElementById('cal-search-results');
+        
         // Mostrar/ocultar botón de borrar
         const clearBtn = document.querySelector('.btn-clear-search');
         if (clearBtn) {
@@ -539,38 +558,133 @@ export const Calendario = {
             }
         }
 
+        if (q.length < 2) {
+            if (resultsBox) resultsBox.classList.add('hidden');
+            document.querySelectorAll('.dcell').forEach(c => c.classList.remove('search-highlight'));
+            return;
+        }
+
+        const matches = [];
+        const cells = document.querySelectorAll('.dcell');
+
         cells.forEach(cell => {
             cell.classList.remove('search-highlight');
-            if (q.length < 2) return;
-
+            
             const eventsData = cell.dataset.events;
             const dateLabel = cell.dataset.dateLabel || "";
             const dayNum = cell.querySelector('.dnum')?.innerText || "";
+            const cellDate = cell.dataset.dateId || cell.onclick?.toString().match(/'(\d+-\d+-\d+)'/)?.[1]; 
+            // Nota: En handleCellClick usamos id como 'YYYY-M-D', pero en dataset no está. 
+            // Vamos a mejorar buildMonthGrid para que incluya data-date-id
 
             let match = false;
+            let matchTitle = "";
+            let matchCat = "";
+            let matchColor = "";
+
             // Búsqueda en fecha/número
-            if (dateLabel.toLowerCase().includes(q) || dayNum === q) match = true;
+            if (this.normalizeText(dateLabel).includes(q) || dayNum === q) {
+                match = true;
+                matchTitle = dateLabel;
+            }
             
             // Búsqueda en eventos
-            if (!match && eventsData) {
+            if (eventsData) {
                 try {
                     const evts = JSON.parse(eventsData);
-                    if (evts.some(e => e.cat.toLowerCase().includes(q) || e.desc.toLowerCase().includes(q))) {
+                    const foundEvt = evts.find(e => this.normalizeText(e.cat).includes(q) || this.normalizeText(e.desc).includes(q));
+                    if (foundEvt) {
                         match = true;
+                        if (!matchTitle) matchTitle = foundEvt.desc || foundEvt.cat;
+                        matchCat = foundEvt.cat;
+                        matchColor = foundEvt.color;
                     }
                 } catch(e) {}
             }
 
             if (match) {
                 cell.classList.add('search-highlight');
+                // Extraer año, mes, día para el globo
+                // cell.dataset.dateLabel es algo como "29 de Marzo de 2026"
+                // Vamos a usar una forma más robusta si es posible, o parsear dateLabel
+                const parts = dateLabel.split(' de ');
+                if (parts.length === 3) {
+                    matches.push({
+                        day: parts[0],
+                        month: parts[1],
+                        year: parts[2],
+                        title: matchTitle,
+                        cat: matchCat,
+                        color: matchColor,
+                        cellId: cell.onclick?.toString().match(/'([^']+)'/)?.[1]
+                    });
+                }
             }
         });
+
+        if (resultsBox) {
+            if (matches.length > 0) {
+                resultsBox.innerHTML = matches.map(m => `
+                    <div class="search-result-item" onclick="Calendario.scrollToMatch('${m.cellId}', '${m.month}')">
+                        <div class="res-date-box">
+                            <span class="res-year">${m.year}</span>
+                            <span class="res-month">${m.month.substring(0,3)}</span>
+                            <span class="res-day">${m.day}</span>
+                        </div>
+                        <div class="res-info">
+                            <span class="res-title">${m.title}</span>
+                            ${m.cat ? `<span class="res-cat"><span class="res-dot" style="background: ${m.color}"></span> ${m.cat}</span>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+                resultsBox.classList.remove('hidden');
+            } else {
+                resultsBox.classList.add('hidden');
+            }
+        }
+    },
+
+    scrollToMatch(cellId, monthName) {
+        if (!cellId) return;
+        
+        // 1. Ocultar globo
+        const resultsBox = document.getElementById('cal-search-results');
+        if (resultsBox) resultsBox.classList.add('hidden');
+
+        // 2. Si estamos en vista mensual y el mes es distinto, cambiar de mes
+        if (this.currentView === 'monthly') {
+            const MN = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            const monthIdx = MN.indexOf(monthName);
+            if (monthIdx !== -1 && monthIdx !== this.selectedMonthIdx) {
+                this.switchToMonthly(monthIdx);
+                // Re-ejecutar búsqueda para que el highlight se vea en el nuevo mes
+                setTimeout(() => this.handleSearch(this.lastSearch), 100);
+                return;
+            }
+        }
+
+        // 3. Buscar la celda y hacer scroll
+        // En vista anual, buscamos el contenedor del mes (.mcard)
+        const cell = Array.from(document.querySelectorAll('.dcell')).find(c => c.onclick?.toString().includes(cellId));
+        if (cell) {
+            const mcard = cell.closest('.mcard');
+            if (mcard) {
+                mcard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                // Efecto de pulso en la celda
+                cell.classList.add('search-focus');
+                setTimeout(() => cell.classList.remove('search-focus'), 2000);
+            } else {
+                cell.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
     },
 
     clearSearch() {
         this.lastSearch = '';
         const input = document.getElementById('cal-search-input');
         if (input) input.value = '';
+        const resultsBox = document.getElementById('cal-search-results');
+        if (resultsBox) resultsBox.classList.add('hidden');
         this.handleSearch('');
     },
 
@@ -681,21 +795,43 @@ export const Calendario = {
                     }
                 }
 
-                // Generar renglones: los que entren o hasta un máximo razonable para evitar saturación
-                // Pero el CSS limitará la altura del contenedor.
+                // --- AGRUPAR EVENTOS CONSECUTIVOS (Ej: 9 al 13) ---
+                const groupedEvents = [];
+                if (monthEvents.length > 0) {
+                    let currentGroup = { 
+                        startDay: monthEvents[0].day, 
+                        endDay: monthEvents[0].day, 
+                        desc: monthEvents[0].desc 
+                    };
+                    
+                    for (let i = 1; i < monthEvents.length; i++) {
+                        const evt = monthEvents[i];
+                        // Si es la misma descripción y es el día siguiente, extendemos el grupo.
+                        // Nota: Si el mismo día hay 2 eventos iguales (raro), se maneja igual.
+                        if (evt.desc === currentGroup.desc && (evt.day === currentGroup.endDay || evt.day === currentGroup.endDay + 1)) {
+                            currentGroup.endDay = evt.day;
+                        } else {
+                            groupedEvents.push(currentGroup);
+                            currentGroup = { startDay: evt.day, endDay: evt.day, desc: evt.desc };
+                        }
+                    }
+                    groupedEvents.push(currentGroup);
+                }
+
                 let refsHtml = '';
-                monthEvents.forEach(evt => {
+                groupedEvents.forEach(evt => {
+                    const dateLabel = evt.startDay === evt.endDay ? `${evt.startDay}:` : `${evt.startDay} al ${evt.endDay}:`;
                     refsHtml += `
                         <div class="ref-line">
-                            <span class="ref-date">${evt.day}:</span>
+                            <span class="ref-date">${dateLabel}</span>
                             <span class="ref-desc">${evt.desc}</span>
                         </div>
                     `;
                 });
 
-                // Si no hay eventos, podemos poner algunos renglones vacíos para notas manuales.
-                if (monthEvents.length < 5) {
-                    for (let i = monthEvents.length; i < 8; i++) {
+                // Si no hay muchos eventos (o se agruparon), ponemos renglones vacíos para notas manuales.
+                if (groupedEvents.length < 10) {
+                    for (let i = groupedEvents.length; i < 11; i++) {
                          refsHtml += `<div class="ref-line"></div>`;
                     }
                 }
