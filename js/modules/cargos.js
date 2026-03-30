@@ -2,9 +2,11 @@
 import { Auth } from './auth.js';
 
 export const Cargos = {
-    list: async () => {
+    list: async (deptoId = null) => {
         try {
-            const response = await fetch('/api/cargos', {
+            let url = '/api/cargos';
+            if (deptoId) url += `?departamento_id=${deptoId}`;
+            const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
             });
             if (!response.ok) throw new Error('Error al obtener cargos');
@@ -54,10 +56,11 @@ export const Cargos = {
     },
 
     render: async (containerId) => {
+        const deptoId = document.getElementById('dept-selector')?.value;
         const container = document.getElementById(containerId);
         container.innerHTML = '<div class="loading">Cargando definiciones de cargos...</div>';
 
-        let cargos = await Cargos.list();
+        let cargos = await Cargos.list(deptoId);
         cargos.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
         
         container.innerHTML = `
@@ -93,8 +96,8 @@ export const Cargos = {
             </div>
         `;
 
-        document.getElementById('btn-add-cargo-def').onclick = () => Cargos.showForm();
-        window.editCargoDef = (id) => Cargos.showForm(cargos.find(c => c.id === id));
+        document.getElementById('btn-add-cargo-def').onclick = () => Cargos.showForm(null, deptoId);
+        window.editCargoDef = (id) => Cargos.showForm(cargos.find(c => c.id === id), deptoId);
         window.deleteCargoDef = async (id) => {
             if (confirm('¿Eliminar esta definición? (Afectará a las asignaciones existentes)')) {
                 const res = await Cargos.delete(id);
@@ -113,6 +116,7 @@ export const Cargos = {
                 <h3>${isEdit ? 'Editar' : 'Nueva'} Definición de Cargo</h3>
                 <form id="cargo-def-form">
                     <input type="hidden" name="id" value="${cargo?.id || ''}">
+                    <input type="hidden" name="departamento_id" value="${cargo?.departamento_id || deptoId || ''}">
                     <div class="form-group">
                         <label>Nombre del Cargo:</label>
                         <input type="text" name="nombre" value="${cargo?.nombre || ''}" required>

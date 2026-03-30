@@ -10,16 +10,18 @@ export const Reportes = {
 
     // Cargar todos los datos necesarios para evitar llamadas repetitivas
     cargarDatosMaestros: async () => {
+        const instId = document.getElementById('inst-selector')?.value;
+        const deptoId = document.getElementById('dept-selector')?.value;
         try {
             const [docentes, departamentos, materias, aulas, comisiones, asignaciones, modulos, cargos, cargoAsignaciones] = await Promise.all([
-                Docentes.list(),
-                Departamentos.list(),
-                Materias.list(),
-                fetch('/api/aulas').then(r => r.json()),
-                Comisiones.list(),
-                fetch('/api/asignaciones').then(r => r.json()),
+                Docentes.list(instId),
+                Departamentos.list(instId),
+                Materias.list(deptoId),
+                fetch(`/api/aulas${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
+                Comisiones.list(deptoId),
+                fetch(`/api/asignaciones${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
                 fetch('/api/modulos').then(r => r.json()),
-                fetch('/api/cargos').then(r => r.json()),
+                fetch(`/api/cargos${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
                 fetch('/api/cargo-asignaciones').then(r => r.json())
             ]);
 

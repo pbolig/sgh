@@ -2,9 +2,11 @@
 import { Auth } from './auth.js';
 
 export const Docentes = {
-    list: async () => {
+    list: async (institucionId = null) => {
         try {
-            const response = await fetch('/api/docentes', {
+            let url = '/api/docentes';
+            if (institucionId) url += `?institucion_id=${institucionId}`;
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
@@ -58,9 +60,9 @@ export const Docentes = {
     },
 
     render: async (containerId) => {
-        console.log('Rendering Docentes in', containerId);
+        const instId = document.getElementById('inst-selector')?.value;
         const container = document.getElementById(containerId);
-        let docentes = await Docentes.list();
+        let docentes = await Docentes.list(instId);
         
         // Ordenar por apellido
         docentes.sort((a, b) => (a.apellido || '').localeCompare(b.apellido || ''));
@@ -100,12 +102,12 @@ export const Docentes = {
         `;
 
         // Usar window para asegurar que los eventos se disparen
-        window.addDocente = () => Docentes.showForm();
+        window.addDocente = () => Docentes.showForm(null, instId);
         document.getElementById('btn-add-docente').onclick = window.addDocente;
         
         window.editDocente = (id) => {
             const docente = docentes.find(d => d.id === id);
-            Docentes.showForm(docente);
+            Docentes.showForm(docente, instId);
         };
 
         window.deleteDocente = async (id) => {
@@ -117,7 +119,7 @@ export const Docentes = {
         };
     },
 
-    showForm: (docente = null) => {
+    showForm: (docente = null, instId = null) => {
         console.log('Showing Docente form', docente);
         const isEdit = !!docente;
         const modal = document.createElement('div');
@@ -127,6 +129,7 @@ export const Docentes = {
                 <h3>${isEdit ? 'Editar' : 'Nuevo'} Docente</h3>
                 <form id="docente-form">
                     <input type="hidden" name="id" value="${docente?.id || ''}">
+                    <input type="hidden" name="institucion_id" value="${docente?.institucion_id || instId || ''}">
                     <div class="form-group">
                         <label>Apellido:</label>
                         <input type="text" name="apellido" value="${docente?.apellido || ''}" required>

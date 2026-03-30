@@ -2,9 +2,11 @@
 import { Auth } from './auth.js';
 
 export const Departamentos = {
-    list: async () => {
+    list: async (institucionId = null) => {
         try {
-            const response = await fetch('/api/departamentos', {
+            let url = '/api/departamentos';
+            if (institucionId) url += `?institucion_id=${institucionId}`;
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
@@ -111,9 +113,9 @@ export const Departamentos = {
     },
 
     render: async (containerId) => {
-        console.log('Rendering Departamentos in', containerId);
+        const instId = document.getElementById('inst-selector')?.value;
         const container = document.getElementById(containerId);
-        const deptos = await Departamentos.list();
+        const deptos = await Departamentos.list(instId);
         
         container.innerHTML = `
             <div class="view-header module-header">
@@ -147,12 +149,12 @@ export const Departamentos = {
             </table>
         `;
 
-        window.addDepto = () => Departamentos.showForm();
+        window.addDepto = () => Departamentos.showForm(null, instId);
         document.getElementById('btn-add-depto').onclick = window.addDepto;
         
         window.editDepto = (id) => {
             const depto = deptos.find(d => d.id === id);
-            Departamentos.showForm(depto);
+            Departamentos.showForm(depto, instId);
         };
 
         window.deleteDepto = async (id) => {
@@ -252,7 +254,7 @@ export const Departamentos = {
         };
     },
 
-    showForm: (depto = null) => {
+    showForm: (depto = null, instId = null) => {
         console.log('Showing Departamento form', depto);
         const isEdit = !!depto;
         const modal = document.createElement('div');
@@ -262,6 +264,7 @@ export const Departamentos = {
                 <h3>${isEdit ? 'Editar' : 'Nuevo'} Departamento</h3>
                 <form id="depto-form">
                     <input type="hidden" name="id" value="${depto?.id || ''}">
+                    <input type="hidden" name="institucion_id" value="${depto?.institucion_id || instId || ''}">
                     <div class="form-group">
                         <label>Código:</label>
                         <input type="text" name="codigo" value="${depto?.codigo || ''}" required>

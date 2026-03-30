@@ -3,9 +3,11 @@ import { Auth } from './auth.js';
 import { Departamentos } from './departamentos.js';
 
 export const Materias = {
-    list: async () => {
+    list: async (deptoId = null) => {
         try {
-            const response = await fetch('/api/materias', {
+            let url = '/api/materias';
+            if (deptoId) url += `?departamento_id=${deptoId}`;
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
@@ -59,9 +61,13 @@ export const Materias = {
     },
 
     render: async (containerId) => {
-        console.log('Rendering Materias in', containerId);
+        const deptoId = document.getElementById('dept-selector')?.value;
+        const instId = document.getElementById('inst-selector')?.value;
         const container = document.getElementById(containerId);
-        let [materias, deptos] = await Promise.all([Materias.list(), Departamentos.list()]);
+        let [materias, deptos] = await Promise.all([
+            Materias.list(deptoId), 
+            Departamentos.list(instId)
+        ]);
         
         // Ordenar por nombre
         materias.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));

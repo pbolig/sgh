@@ -2,11 +2,37 @@ from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
 
+# Esquemas de Institución
+class InstitucionBase(BaseModel):
+    nombre: str
+    codigo: str
+    descripcion: Optional[str] = None
+    logo_url: Optional[str] = None
+    activo: Optional[int] = 1
+
+class InstitucionCreate(InstitucionBase):
+    pass
+
+class InstitucionUpdate(BaseModel):
+    nombre: Optional[str] = None
+    codigo: Optional[str] = None
+    descripcion: Optional[str] = None
+    logo_url: Optional[str] = None
+    activo: Optional[int] = None
+
+class Institucion(InstitucionBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    class Config:
+        from_attributes = True
+
 # Esquemas de Usuario
 class UsuarioBase(BaseModel):
     username: str
     rol: str
     activo: int
+    institucion_id: Optional[int] = None
 
 class UsuarioCreate(UsuarioBase):
     password: str
@@ -19,6 +45,7 @@ class Usuario(UsuarioBase):
 
 # Esquemas de Departamento
 class DepartamentoBase(BaseModel):
+    institucion_id: Optional[int] = None
     nombre: str
     codigo: str
     descripcion: Optional[str] = None
@@ -42,6 +69,7 @@ class Departamento(DepartamentoBase):
 
 # Esquemas de Docente
 class DocenteBase(BaseModel):
+    institucion_id: Optional[int] = None
     apellido: str
     nombre: Optional[str] = None
     email: Optional[str] = None
@@ -263,6 +291,7 @@ class TokenData(BaseModel):
 # --- ESQUEMAS DE CALENDARIO ---
 
 class CalendarioBase(BaseModel):
+    departamento_id: Optional[int] = None
     nombre: str
     descripcion: Optional[str] = None
 
@@ -294,6 +323,7 @@ class CalendarioEventoBase(BaseModel):
     categoria_id: int
     descripcion: Optional[str] = None
     es_privado: Optional[bool] = False
+    es_no_laborable: Optional[bool] = False
 
 class CalendarioEventoCreate(CalendarioEventoBase):
     pass

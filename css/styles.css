@@ -2735,6 +2735,24 @@ textarea:focus {
     position: relative;
 }
 
+/* Marca de Feriado (X) */
+.dcell.is-holiday::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: 
+        linear-gradient(to top right, transparent 48%, rgba(239, 68, 68, 0.4) 49%, rgba(239, 68, 68, 0.4) 51%, transparent 52%),
+        linear-gradient(to top left, transparent 48%, rgba(239, 68, 68, 0.4) 49%, rgba(239, 68, 68, 0.4) 51%, transparent 52%);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.cal-grid-container:not(.monthly-mode) .dcell.is-holiday::before {
+    background: 
+        linear-gradient(to top right, transparent 45%, rgba(239, 68, 68, 0.3) 48%, rgba(239, 68, 68, 0.3) 52%, transparent 55%),
+        linear-gradient(to top left, transparent 45%, rgba(239, 68, 68, 0.3) 48%, rgba(239, 68, 68, 0.3) 52%, transparent 55%);
+}
+
 .workload-legend {
     margin-top: 1.5rem;
     padding-top: 1rem;
@@ -2819,7 +2837,16 @@ textarea:focus {
 .cal-pdf-mode {
     background: white !important;
     color: black !important;
-    padding: 20px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.cal-pdf-mode .calendario-header,
+.cal-pdf-mode .cal-sidebar,
+.cal-pdf-mode .year-selector,
+.cal-pdf-mode .btn-export,
+.cal-pdf-mode .search-group-wrapper {
+    display: none !important;
 }
 
 .cal-pdf-mode .mcard, 
@@ -2844,16 +2871,49 @@ textarea:focus {
     height: auto !important; /* Permitir que monthly-mode o annual-mode decidan */
 }
 
+.cal-pdf-mode .dcell.is-holiday::before {
+    background: 
+        linear-gradient(to top right, transparent 48%, rgba(0, 0, 0, 0.2) 49%, rgba(0, 0, 0, 0.2) 51%, transparent 52%),
+        linear-gradient(to top left, transparent 48%, rgba(0, 0, 0, 0.2) 49%, rgba(0, 0, 0, 0.2) 51%, transparent 52%);
+    z-index: 10;
+}
+
 .cal-pdf-mode .cal-grid-container.monthly-mode .dcell {
-    height: 130px !important; /* Altura fija para PDF */
+    height: 120px !important;
     width: auto !important;
 }
 
-.cal-pdf-mode .single-month {
-    width: 100% !important;
-    max-width: none !important;
+/* Ajustes para la grilla anual en PDF */
+.cal-pdf-mode #calendario-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 15px !important;
+    width: 1000px !important;
     background: white !important;
     padding: 20px !important;
+}
+
+.cal-pdf-mode .mcard-annual {
+    padding: 10px !important;
+    border: 1px solid #ddd !important;
+    background: white !important;
+    box-shadow: none !important;
+}
+
+.cal-pdf-mode .single-month,
+.cal-pdf-mode #monthly-view-target {
+    width: 1400px !important;
+    height: 950px !important;
+    max-width: none !important;
+    background: white !important;
+    padding: 30px !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.cal-pdf-mode .dcont-monthly {
+    width: 1300px !important;
+    flex: 1 !important;
 }
 
 .cal-pdf-mode .dcell.empty {

@@ -3,9 +3,11 @@ import { Auth } from './auth.js';
 import { Materias } from './materias.js';
 
 export const Comisiones = {
-    list: async () => {
+    list: async (deptoId = null) => {
         try {
-            const response = await fetch('/api/comisiones', {
+            let url = '/api/comisiones';
+            if (deptoId) url += `?departamento_id=${deptoId}`;
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
@@ -59,9 +61,12 @@ export const Comisiones = {
     },
 
     render: async (containerId) => {
-        console.log('Rendering Comisiones in', containerId);
+        const deptoId = document.getElementById('dept-selector')?.value;
         const container = document.getElementById(containerId);
-        let [comisiones, materias] = await Promise.all([Comisiones.list(), Materias.list()]);
+        let [comisiones, materias] = await Promise.all([
+            Comisiones.list(deptoId), 
+            Materias.list(deptoId)
+        ]);
         
         // Ordenar por código (de forma alfanumérica robusta)
         comisiones.sort((a, b) => (a.codigo || '').localeCompare(b.codigo || '', undefined, { numeric: true, sensitivity: 'base' }));

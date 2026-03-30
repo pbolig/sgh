@@ -5,13 +5,18 @@ import { Departamentos } from './departamentos.js';
 import { Cargos } from './cargos.js';
 
 export const CargoAsignaciones = {
-    list: async () => {
+    list: async (deptoId = null) => {
         try {
-            const response = await fetch('/api/cargo-asignaciones', {
+            let url = '/api/cargo-asignaciones';
+            // Nota: Backend necesita soportar filtro por depto_id si se requiere aquí.
+            // Por ahora asigs suelen filtrarse en el render.
+            const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
             });
             if (!response.ok) throw new Error('Error al obtener asignaciones');
-            return await response.json();
+            let data = await response.json();
+            if (deptoId) data = data.filter(a => a.departamento_id == deptoId);
+            return data;
         } catch (error) {
             console.error(error);
             return [];
@@ -57,14 +62,16 @@ export const CargoAsignaciones = {
     },
 
     render: async (containerId) => {
+        const instId = document.getElementById('inst-selector')?.value;
+        const deptoId = document.getElementById('dept-selector')?.value;
         const container = document.getElementById(containerId);
         container.innerHTML = '<div class="loading">Cargando asignaciones de cargos...</div>';
 
         const [asigs, docentes, deptos, cargos] = await Promise.all([
-            CargoAsignaciones.list(),
-            Docentes.list(),
-            Departamentos.list(),
-            Cargos.list()
+            CargoAsignaciones.list(deptoId),
+            Docentes.list(instId),
+            Departamentos.list(instId),
+            Cargos.list(deptoId)
         ]);
         
         container.innerHTML = `
@@ -121,8 +128,8 @@ export const CargoAsignaciones = {
             </div>
         `;
 
-        document.getElementById('btn-add-asig').onclick = () => CargoAsignaciones.showForm(null, docentes, deptos, cargos);
-        window.editAsig = (id) => CargoAsignaciones.showForm(asigs.find(a => a.id === id), docentes, deptos, cargos);
+        document.getElementById('btn-add-asig').onclick = () => CargoAsignaciones.showForm(null, docentes, deptos, cargos, deptoId);
+        window.editAsig = (id) => CargoAsignaciones.showForm(asigs.find(a => a.id === id), docentes, deptos, cargos, deptoId);
         window.deleteAsig = async (id) => {
             if (confirm('¿Eliminar esta asignación?')) {
                 const res = await CargoAsignaciones.delete(id);
@@ -132,7 +139,7 @@ export const CargoAsignaciones = {
         };
     },
 
-    showForm: (asig = null, docentes = [], deptos = [], cargos = []) => {
+    showForm: (asig = null, docentes = [], deptos = [], cargos = [], deptoId = null) => {
         const isEdit = !!asig;
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -170,7 +177,7 @@ export const CargoAsignaciones = {
                                 <label>Departamento:</label>
                                 <select name="departamento_id" required>
                                     <option value="">-- Seleccione --</option>
-                                    ${deptos.map(d => `<option value="${d.id}" ${d.id === asig?.departamento_id ? 'selected' : ''}>${d.nombre}</option>`).join('')}
+                                    ${deptos.map(d => `<option value="${d.id}" ${d.id == (asig?.departamento_id || deptoId) ? 'selected' : ''}>${d.nombre}</option>`).join('')}
                                 </select>
                             </div>
                         </div>

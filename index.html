@@ -61,6 +61,7 @@
                         <li><a href="#" data-route="cargo-asignaciones">📝 <span>Asignación de Cargos</span></a></li>
                         <li><a href="#" data-route="calendario">📅 <span>Calendario</span></a></li>
                         <li><a href="#" data-route="pad">📋 <span>Planificación (PAD)</span></a></li>
+                        <li id="nav-instituciones" class="hidden"><a href="#" data-route="instituciones">🏢 <span>Instituciones</span></a></li>
                     </ul>
                 </nav>
                 <div class="sidebar-footer">
@@ -77,8 +78,11 @@
                         <h2 id="page-title">Dashboard</h2>
                     </div>
                     <div class="header-actions">
+                        <select id="inst-selector" class="select-modern">
+                            <!-- Instituciones -->
+                        </select>
                         <select id="dept-selector" class="select-modern">
-                            <!-- Opciones cargadas dinámicamente -->
+                            <!-- Departamentos -->
                         </select>
                         <button id="print-btn" class="btn-icon">🖨️</button>
                     </div>

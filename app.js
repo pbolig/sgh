@@ -12,6 +12,7 @@ import { Cargos } from './js/modules/cargos.js';
 import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js';
 import { Calendario } from './js/modules/calendario.js';
 import { PAD } from './js/modules/pad.js';
+import { Instituciones } from './js/modules/instituciones.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('App inicializada');
@@ -49,15 +50,25 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('login-screen').classList.add('hidden');
         document.getElementById('main-screen').classList.remove('hidden');
         document.getElementById('user-display').textContent = user.username;
+        
+        // Mostrar link de instituciones solo si es admin
+        const navInst = document.getElementById('nav-instituciones');
+        if (navInst && user.rol === 'admin') {
+            navInst.classList.remove('hidden');
+        }
+
         initNavigation();
         initSidebar();
         initHeaderToggle();
-        populateDeptSelector();
+        populateInstSelector();
 
         // Escuchar cambios en los datos de otros módulos
         window.addEventListener('data-changed', (e) => {
             if (e.detail.type === 'departamentos') {
-                populateDeptSelector();
+                populateDeptSelector(document.getElementById('inst-selector').value);
+            }
+            if (e.detail.type === 'instituciones') {
+                populateInstSelector();
             }
         });
     }
@@ -95,18 +106,57 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function populateDeptSelector() {
-        const selector = document.getElementById('dept-selector');
+    async function populateInstSelector() {
+        const selector = document.getElementById('inst-selector');
         if (!selector) return;
         
-        const deptos = await Departamentos.list();
+        const list = await Instituciones.list();
+        selector.innerHTML = '<option value="">Seleccione Institución</option>' + 
+            list.map(i => `<option value="${i.id}">${i.nombre}</option>`).join('');
+            
+        // Restaurar selección previa o seleccionar la primera
+        const saved = localStorage.getItem('selected-inst-id');
+        if (saved) selector.value = saved;
+        else if (list.length > 0) {
+            selector.value = list[0].id;
+        }
+
+        selector.onchange = (e) => {
+            const instId = e.target.value;
+            localStorage.setItem('selected-inst-id', instId);
+            populateDeptSelector(instId);
+        };
+
+        // Cargar departamentos para la institución seleccionada
+        populateDeptSelector(selector.value);
+    }
+
+    async function populateDeptSelector(instId) {
+        const selector = document.getElementById('dept-selector');
+        if (!selector) return;
+
+        if (!instId) {
+            selector.innerHTML = '<option value="">Todos los Departamentos</option>';
+            return;
+        }
+        
+        const deptos = await Departamentos.list(instId);
         selector.innerHTML = '<option value="">Todos los Departamentos</option>' + 
             deptos.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('');
             
+        // Restaurar selección previa
+        const saved = localStorage.getItem('selected-dept-id');
+        if (saved && deptos.find(d => d.id == saved)) {
+            selector.value = saved;
+        }
+
         selector.onchange = (e) => {
-            console.log('Filtro por departamento:', e.target.value);
-            // Podríamos emitir un evento global o refrescar la vista actual si lo soporta
-            const currentRoute = document.querySelector('#main-nav li.active a')?.getAttribute('data-route');
+            localStorage.setItem('selected-dept-id', e.target.value);
+            // Refrescar vista actual
+            const activeLi = document.querySelector('#main-nav li.active a');
+            if (activeLi) {
+                loadView(activeLi.getAttribute('data-route'));
+            }
         };
     }
 
@@ -164,6 +214,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'comisiones':
                 await Comisiones.render('view-container');
+                break;
+            case 'instituciones':
+                await Instituciones.render('view-container');
                 break;
             case 'editor':
                 await Editor.render('view-container');

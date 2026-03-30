@@ -37,19 +37,22 @@ export const Dashboard = {
             </div>
         `;
         
+        const instId = document.getElementById('inst-selector')?.value;
+        const deptoId = document.getElementById('dept-selector')?.value;
+        
         // Cargar datos necesarios
         const [deptos, modulos, aulas, docentes, comisiones, allAsignaciones, cargoAsignaciones, cargos, excluidos, calEvents] = await Promise.all([
-            Departamentos.list(),
+            Departamentos.list(instId),
             fetch('/api/modulos').then(r => r.json()),
-            fetch('/api/aulas').then(r => r.json()),
-            Docentes.list(),
-            Comisiones.list(),
-            fetch('/api/asignaciones').then(r => r.json()),
+            fetch(`/api/aulas${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
+            Docentes.list(instId),
+            Comisiones.list(deptoId),
+            fetch(`/api/asignaciones${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
             fetch('/api/cargo-asignaciones').then(r => r.json()),
-            fetch('/api/cargos').then(r => r.json()),
+            fetch(`/api/cargos${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
             fetch('/api/recreos_excluidos').then(r => r.json()),
-            fetch('/api/calendarios').then(r => r.json()).then(async cals => {
-                if (cals.length > 0) {
+            fetch(`/api/calendarios${instId ? '?institucion_id=' + instId : ''}`).then(r => r.json()).then(async cals => {
+                if (cals && cals.length > 0) {
                     const res = await fetch(`/api/calendario_eventos?calendario_id=${cals[0].id}`);
                     return res.json();
                 }

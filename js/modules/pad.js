@@ -9,12 +9,14 @@ export const PAD = {
     },
 
     async init() {
+        const deptoId = document.getElementById('dept-selector')?.value;
+        const instId = document.getElementById('inst-selector')?.value;
         console.log("PAD Module initialized");
         try {
             const [mats, docs, coms] = await Promise.all([
-                fetch('/api/materias').then(r => r.json()),
-                fetch('/api/docentes').then(r => r.json()),
-                fetch('/api/comisiones').then(r => r.json())
+                fetch(`/api/materias${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
+                fetch(`/api/docentes${instId ? '?institucion_id=' + instId : ''}`).then(r => r.json()),
+                fetch(`/api/comisiones${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json())
             ]);
             this.db.materias = mats;
             this.db.docentes = docs;
@@ -25,6 +27,7 @@ export const PAD = {
     },
 
     async render(containerId) {
+        await this.init();
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -565,6 +568,22 @@ export const PAD = {
                     document.getElementById('materia').value = mat.nombre;
                     document.getElementById('anio').value = anio;
                     
+                    // Auto-fill institution data
+                    const instSelector = document.getElementById('inst-selector');
+                    const deptSelector = document.getElementById('dept-selector');
+                    if (instSelector) {
+                        const instOption = instSelector.options[instSelector.selectedIndex];
+                        if (instOption) {
+                            document.getElementById('instituto').value = instOption.text;
+                        }
+                    }
+                    if (deptSelector) {
+                        const deptOption = deptSelector.options[deptSelector.selectedIndex];
+                        if (deptOption) {
+                            document.getElementById('carrera').value = deptOption.text;
+                        }
+                    }
+
                     // Auto-fill docente from session if possible
                     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
                     if (user.rol === 'docente' || user.rol === 'admin') {

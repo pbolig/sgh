@@ -14,9 +14,13 @@ export const Calendario = {
     selEnd: null,
 
     async init() {
+        const deptoId = document.getElementById('dept-selector')?.value;
         // Cargar calendarios y seleccionar el primero
         try {
-            const cals = await fetch(`/api/calendarios`).then(r => r.json());
+            let url = `/api/calendarios`;
+            if (deptoId) url += `?departamento_id=${deptoId}`;
+            
+            const cals = await fetch(url).then(r => r.json());
             if (cals && cals.length > 0) {
                 this.calendarioId = cals[0].id;
                 await this.loadData();
@@ -28,12 +32,13 @@ export const Calendario = {
 
     async loadData() {
         if (!this.calendarioId) return;
+        const deptoId = document.getElementById('dept-selector')?.value;
         try {
             const [cats, evts, notes, asigs] = await Promise.all([
                 fetch(`/api/calendario_categorias?calendario_id=${this.calendarioId}`).then(r => r.json()),
                 fetch(`/api/calendario_eventos?calendario_id=${this.calendarioId}`).then(r => r.json()),
                 fetch(`/api/notas_adhesivas?calendario_id=${this.calendarioId}`).then(r => r.json()),
-                fetch(`/api/asignaciones`).then(r => r.json())
+                fetch(`/api/asignaciones${deptoId ? '?departamento_id='+deptoId : ''}`).then(r => r.json())
             ]);
 
             this.db.categories = cats;
@@ -127,7 +132,7 @@ export const Calendario = {
                 </div>
 
             <div class="calendario-main-layout">
-                <div class="cal-grid-container ${this.currentView === 'monthly' ? 'monthly-mode' : ''} ${this.currentView === 'docente' ? 'docente-mode' : ''}" id="cal-grid-root">
+                <div class="cal-grid-container ${this.currentView === 'monthly' ? 'monthly-mode' : ''} ${this.currentView === 'docente' ? 'docente-mode' : ''}" id="calendario-grid">
                     ${this.renderGrid()}
                 </div>
                 
@@ -190,6 +195,10 @@ export const Calendario = {
                         <input type="checkbox" id="cal-event-private">
                         <label for="cal-event-private">Evento Privado (Solo personal)</label>
                     </div>
+                    <div class="modal-private-row">
+                        <input type="checkbox" id="cal-event-no-laborable">
+                        <label for="cal-event-no-laborable" style="color: #ef4444; font-weight: bold;">Marcar como día NO LABORABLE (Cruz Roja)</label>
+                    </div>
                     <div class="modal-actions">
                          <button class="btn-danger" id="btn-clear-range" onclick="Calendario.clearRange()">Limpiar Rango</button>
                          <button class="btn-secondary" onclick="Calendario.closeModal()">Cancelar</button>
@@ -230,6 +239,7 @@ export const Calendario = {
                                 <div class="event-cat">${ev.cat}</div>
                                 <div class="event-desc">${ev.desc}</div>
                                 ${ev.private ? '<div class="event-privacy">🔒 Privado</div>' : ''}
+                                ${ev.noLaborable ? '<div class="event-privacy" style="color: #ef4444">✖ No Laborable</div>' : ''}
                             </div>
                         </div>
                     `;
@@ -272,7 +282,7 @@ export const Calendario = {
         if (this.currentView === 'annual') {
                 MN.forEach((name, idx) => {
                     html += `
-                        <div class="mcard glass-card">
+                        <div class="mcard glass-card mcard-annual">
                             <div class="mname">${name}</div>
                             <div class="dcont-annual">
                                 ${DLABELS.map(d => `<div class="dlbl">${d[0]}</div>`).join('')}
@@ -285,7 +295,7 @@ export const Calendario = {
             html = this.renderModoDocente();
         } else {
             html = `
-                <div class="mcard glass-card single-month">
+                <div class="mcard glass-card single-month" id="monthly-view-target">
                     <div class="dcont-monthly">
                         <div class="month-header-grid">
                              ${DLABELS.map(d => `<div class="dlbl">${d}</div>`).join('')}
@@ -327,6 +337,13 @@ export const Calendario = {
             const isToday = dateKey === todayStr;
             const evts = this.db.events[dateKey] || [];
             
+            // Detección de Feriado/Puente para la "X" visual
+            const isHoliday = evts.some(e => 
+                e.es_no_laborable || // Nuevo: Marcado manualmente
+                (e.categoria.nombre || "").toLowerCase().includes('feriado') || 
+                (e.descripcion || "").toLowerCase().includes('feriado')
+            );
+
             let style = '';
             const dayEvents = [];
 
@@ -345,7 +362,8 @@ export const Calendario = {
                         cat: e.categoria.nombre,
                         desc: e.descripcion || 'Sin descripción',
                         color: e.categoria.color,
-                        private: e.es_privado
+                        private: e.es_privado,
+                        noLaborable: e.es_no_laborable
                     });
                 });
             }
@@ -374,7 +392,7 @@ export const Calendario = {
             }
 
             html += `
-                <div class="dcell ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}" 
+                <div class="dcell ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${isHoliday ? 'is-holiday' : ''}" 
                      style="${style}"
                      data-date-label="${dateLabel}"
                      ${eventsAttr}
@@ -442,6 +460,7 @@ export const Calendario = {
     async applyEvent(catId) {
         const desc = document.getElementById('cal-event-desc').value;
         const isPrivate = document.getElementById('cal-event-private').checked;
+        const isNoLaborable = document.getElementById('cal-event-no-laborable').checked;
         const dates = this.getDateRange(this.selStart, this.selEnd);
         
         try {
@@ -454,7 +473,8 @@ export const Calendario = {
                         fecha: fecha,
                         categoria_id: catId,
                         descripcion: desc,
-                        es_privado: isPrivate
+                        es_privado: isPrivate,
+                        es_no_laborable: isNoLaborable
                     })
                 });
             });
@@ -949,7 +969,7 @@ export const Calendario = {
         const isAnnual = this.currentView === 'annual';
         const isDocente = this.currentView === 'docente';
         
-        let captureTarget = isAnnual ? el : el.querySelector('.single-month');
+        let captureTarget = isAnnual ? document.getElementById('calendario-grid') : document.getElementById('monthly-view-target');
         if (isDocente) captureTarget = document.getElementById('docente-view-container');
         
         if (!captureTarget) {
@@ -961,7 +981,8 @@ export const Calendario = {
 
         document.body.classList.add('cal-pdf-mode');
         document.body.style.backgroundColor = 'white';
-        await new Promise(resolve => setTimeout(resolve, 600));
+        window.scrollTo(0, 0); // Fix para html2canvas en elementos largos
+        await new Promise(resolve => setTimeout(resolve, 800));
 
         try {
             const jsPDFConstructor = window.jspdf ? window.jspdf.jsPDF : jspdf.jsPDF;
@@ -978,143 +999,63 @@ export const Calendario = {
             // --- HOJA 1: RESUMEN VISUAL ---
             let canvas = null;
             if (!isDocente) {
-                canvas = await html2canvas(captureTarget, {
-                    scale: 2,
-                    useCORS: true,
-                    backgroundColor: '#ffffff',
-                    logging: false,
-                    onclone: (clonedDoc) => {
-                        clonedDoc.body.style.background = 'white';
-                        const container = clonedDoc.getElementById('calendario-container');
-                    const sidebar = clonedDoc.querySelector('.cal-sidebar');
-                    const yearSelector = clonedDoc.querySelector('.year-selector');
-                    const exportBtn = clonedDoc.querySelector('.btn-export');
-                    
-                    // Ocultar elementos globales para evitar interferencias
-                    if (sidebar) sidebar.style.display = 'none';
-                    if (yearSelector) yearSelector.style.display = 'none';
-                    if (exportBtn) exportBtn.style.display = 'none';
+                // MÉTODO ON-SCREEN OVERLAY: Para máxima compatibilidad con html2canvas
+                const sandbox = document.createElement('div');
+                sandbox.id = "cal-export-sandbox";
+                sandbox.style.position = 'fixed';
+                sandbox.style.top = '0';
+                sandbox.style.left = '0';
+                sandbox.style.width = isAnnual ? '1200px' : '1600px';
+                sandbox.style.zIndex = '999999';
+                sandbox.style.background = 'white';
+                sandbox.className = 'cal-pdf-mode';
+                
+                const clone = captureTarget.cloneNode(true);
+                clone.style.display = 'block';
+                clone.style.background = 'white';
+                
+                sandbox.appendChild(clone);
+                document.body.appendChild(sandbox);
 
-                    if (container) {
-                        if (isDocente) {
-                            // Ajustes para exportación de Modo Docente (múltiples páginas)
-                            const docenteContainer = clonedDoc.getElementById('docente-view-container');
-                            if (docenteContainer) {
-                                docenteContainer.style.width = '210mm'; // A4 width
-                                docenteContainer.style.background = 'white';
-                                clonedDoc.querySelectorAll('.docente-page').forEach(page => {
-                                    page.style.width = '210mm';
-                                    page.style.height = '297mm';
-                                    page.style.boxShadow = 'none';
-                                    page.style.margin = '0';
-                                    page.style.padding = '15mm';
-                                    page.style.border = 'none';
-                                });
-                            }
-                        } else if (isAnnual) {
-                            // --- AJUSTES VISTA ANUAL (VERTICAL) ---
-                            const mainLayout = clonedDoc.querySelector('.calendario-main-layout');
-                            const grid = clonedDoc.getElementById('calendario-grid');
-                            
-                            if (mainLayout) {
-                                mainLayout.style.display = 'block'; 
-                                mainLayout.style.width = '950px';
-                            }
-                            
-                            if (grid) {
-                                grid.style.display = 'grid';
-                                grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
-                                grid.style.gap = '10px';
-                                grid.style.width = '950px';
-                            }
+                // Pequeña pausa para asegurar renderizado
+                await new Promise(r => setTimeout(r, 500));
 
-                            clonedDoc.querySelectorAll('.mcard').forEach(mc => {
-                                mc.style.padding = '10px';
-                                mc.style.border = '1px solid #eee';
-                            });
-                            
-                            container.style.width = '1000px';
-                            container.style.height = 'auto';
-                        } else {
-                            // --- AJUSTES VISTA MENSUAL (APAISADA) ---
-                            // COLAPSAR EL LAYOUT DE 2 COLUMNAS A 1
-                            const mainLayout = clonedDoc.querySelector('.calendario-main-layout');
-                            if (mainLayout) {
-                                mainLayout.style.display = 'block'; // Elimina 'grid' y la columna de 320px
-                                mainLayout.style.width = '100%';
-                            }
-
-                            const target = clonedDoc.querySelector('.single-month');
-                            if (target) {
-                                // Forzamos dimensiones que coincidan exactamente con el ratio A4 Landscape (~1.45)
-                                // Si el ancho es 1500px, el alto ideal es ~1030px para llenar la hoja
-                                target.style.width = '1500px'; 
-                                target.style.height = '1030px'; 
-                                target.style.maxWidth = 'none';
-                                target.style.margin = '0';
-                                target.style.padding = '30px';
-                                target.style.display = 'flex';
-                                target.style.flexDirection = 'column';
-                                target.style.background = 'white';
-                                
-                                const dcont = target.querySelector('.dcont-monthly');
-                                if (dcont) {
-                                    dcont.style.width = '100%';
-                                    dcont.style.flex = '1';
-                                    dcont.style.display = 'flex';
-                                    dcont.style.flexDirection = 'column';
-                                    dcont.style.gap = '15px';
-                                }
-
-                                const headerGrid = target.querySelector('.month-header-grid');
-                                const daysGrid = target.querySelector('.month-days-grid');
-                                if (headerGrid) {
-                                    headerGrid.style.width = '100%';
-                                    headerGrid.style.display = 'grid';
-                                    headerGrid.style.gridTemplateColumns = 'repeat(5, 1fr)';
-                                }
-                                if (daysGrid) {
-                                    daysGrid.style.width = '100%';
-                                    daysGrid.style.display = 'grid';
-                                    daysGrid.style.gridTemplateColumns = 'repeat(5, 1fr)';
-                                    // Forzamos a que las filas se estiren para cubrir el alto disponible
-                                    daysGrid.style.gridAutoRows = '1fr'; 
-                                    daysGrid.style.flex = '1';
-                                }
-
-                                // Estirar celdas individuales para asegurar llenado vertical
-                                clonedDoc.querySelectorAll('.month-days-grid .dcell').forEach(dc => {
-                                    dc.style.height = '100%';
-                                    dc.style.minHeight = '0';
-                                });
-                            }
-                            container.style.width = '1550px';
-                            container.style.height = '1100px'; // Ajuste final para ratio A4
-                        }
-                        container.style.background = 'white';
-                        container.style.boxShadow = 'none';
-                        container.style.padding = '10px';
-                    }
+                try {
+                    canvas = await html2canvas(sandbox, {
+                        scale: isAnnual ? 1.2 : 2, // Escala moderada para evitar fallos de memoria
+                        useCORS: true,
+                        backgroundColor: '#ffffff',
+                        logging: false
+                    });
+                } finally {
+                    document.body.removeChild(sandbox);
                 }
-            });
-        }
+            }
 
-        if (!isDocente && canvas) {
+        if (!isDocente && canvas && canvas.width > 0 && canvas.height > 0) {
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
                 const canvasRatio = canvas.width / canvas.height;
                 
                 let finalWidth = printableWidth;
-                let finalHeight = printableWidth / canvasRatio;
+                let finalHeight = (canvasRatio > 0) ? (printableWidth / canvasRatio) : 0;
 
                 if (finalHeight > printableHeight) {
                     finalHeight = printableHeight;
                     finalWidth = printableHeight * canvasRatio;
                 }
 
-                const xOffset = margin + (printableWidth - finalWidth) / 2;
-                const yOffset = margin + (printableHeight - finalHeight) / 2;
+                // Asegurar que no sean NaN o valores invalidos
+                finalWidth = isNaN(finalWidth) ? 190 : Math.max(1, finalWidth);
+                finalHeight = isNaN(finalHeight) ? 100 : Math.max(1, finalHeight);
 
-                pdf.addImage(imgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
+                const xOffset = margin + Math.max(0, (printableWidth - finalWidth) / 2);
+                const yOffset = margin + Math.max(0, (printableHeight - finalHeight) / 2);
+
+                try {
+                    pdf.addImage(imgData, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
+                } catch (addImgErr) {
+                    console.error("Error adding image to PDF:", addImgErr);
+                }
             } else if (isDocente) {
                 // MODO DOCENTE: Múltiples páginas
                 const pages = document.querySelectorAll('.docente-page');
@@ -1131,13 +1072,14 @@ export const Calendario = {
                         onclone: (clonedDoc) => {
                             clonedDoc.body.style.background = 'white';
                         },
-                        width: pages[i].offsetWidth,
-                        height: pages[i].offsetHeight
+                        width: pages[i].offsetWidth || 800,
+                        height: pages[i].offsetHeight || 1100
                     });
                     
-                    const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
-                    // Como el CSS ya tiene los márgenes de 10mm, pegamos a la página completa (210x297)
-                    pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
+                    if (pageCanvas.width > 0 && pageCanvas.height > 0) {
+                        const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+                        pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
+                    }
                 }
             }
 

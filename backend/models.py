@@ -3,20 +3,35 @@ from sqlalchemy.orm import relationship
 from database import Base
 import datetime
 
+class Institucion(Base):
+    __tablename__ = "instituciones"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, index=True)
+    codigo = Column(String, unique=True, index=True)
+    descripcion = Column(Text, nullable=True)
+    logo_url = Column(String, nullable=True)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
 class Usuario(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id"), nullable=True)
     username = Column(String, unique=True, index=True)
     password_hash = Column(String)
     rol = Column(String)
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    
+    institucion = relationship("Institucion")
 
 class Departamento(Base):
     __tablename__ = "departamentos"
     id = Column(Integer, primary_key=True, index=True)
-    nombre = Column(String, unique=True, index=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), nullable=True)
+    nombre = Column(String, index=True)
     codigo = Column(String, unique=True, index=True)
     descripcion = Column(Text, nullable=True)
     activo = Column(Integer, default=1)
@@ -32,6 +47,7 @@ class Departamento(Base):
 class Docente(Base):
     __tablename__ = "docentes"
     id = Column(Integer, primary_key=True, index=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), nullable=True)
     apellido = Column(String, index=True)
     nombre = Column(String, index=True)
     email = Column(String, nullable=True)
@@ -175,6 +191,7 @@ class CargoHorario(Base):
 class Calendario(Base):
     __tablename__ = "calendarios"
     id = Column(Integer, primary_key=True, index=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True)
     nombre = Column(String, index=True)
     descripcion = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
@@ -194,6 +211,7 @@ class CalendarioEvento(Base):
     categoria_id = Column(Integer, ForeignKey("calendario_categorias.id"))
     descripcion = Column(Text, nullable=True)
     es_privado = Column(Boolean, default=False)
+    es_no_laborable = Column(Boolean, default=False)
 
     categoria = relationship("CalendarioCategoria")
 

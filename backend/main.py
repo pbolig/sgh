@@ -56,11 +56,55 @@ async def login(
         "user": user
     }
 
+# --- INSTITUCIONES ---
+
+@app.get("/instituciones", response_model=List[schemas.Institucion])
+async def get_instituciones(db: Session = Depends(get_db)):
+    return db.query(models.Institucion).all()
+
+@app.post("/instituciones", response_model=schemas.Institucion)
+async def create_institucion(inst: schemas.InstitucionCreate, db: Session = Depends(get_db)):
+    db_inst = db.query(models.Institucion).filter(models.Institucion.codigo == inst.codigo).first()
+    if db_inst:
+        raise HTTPException(status_code=400, detail="El código de institución ya existe")
+    
+    new_inst = models.Institucion(**inst.dict())
+    db.add(new_inst)
+    db.commit()
+    db.refresh(new_inst)
+    return new_inst
+
+@app.put("/instituciones/{id}", response_model=schemas.Institucion)
+async def update_institucion(id: int, inst: schemas.InstitucionUpdate, db: Session = Depends(get_db)):
+    db_inst = db.query(models.Institucion).filter(models.Institucion.id == id).first()
+    if not db_inst:
+        raise HTTPException(status_code=404, detail="Institución no encontrada")
+    
+    for key, value in inst.dict(exclude_unset=True).items():
+        setattr(db_inst, key, value)
+    
+    db.commit()
+    db.refresh(db_inst)
+    return db_inst
+
+@app.delete("/instituciones/{id}")
+async def delete_institucion(id: int, db: Session = Depends(get_db)):
+    db_inst = db.query(models.Institucion).filter(models.Institucion.id == id).first()
+    if not db_inst:
+        raise HTTPException(status_code=404, detail="Institución no encontrada")
+    
+    db.delete(db_inst)
+    db.commit()
+    return {"message": "Institución eliminada correctamente"}
+
 # --- DEPARTAMENTOS ---
 
 @app.get("/departamentos", response_model=List[schemas.Departamento])
-async def get_departamentos(db: Session = Depends(get_db)):
-    return db.query(models.Departamento).all()
+async def get_departamentos(institucion_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Departamento)
+    if institucion_id:
+        query = query.filter(models.Departamento.institucion_id == institucion_id)
+    return query.all()
 
 @app.post("/departamentos", response_model=schemas.Departamento)
 async def create_departamento(depto: schemas.DepartamentoCreate, db: Session = Depends(get_db)):
@@ -100,8 +144,11 @@ async def delete_departamento(id: int, db: Session = Depends(get_db)):
 # --- DOCENTES ---
 
 @app.get("/docentes", response_model=List[schemas.Docente])
-async def get_docentes(db: Session = Depends(get_db)):
-    return db.query(models.Docente).all()
+async def get_docentes(institucion_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Docente)
+    if institucion_id:
+        query = query.filter(models.Docente.institucion_id == institucion_id)
+    return query.all()
 
 @app.post("/docentes", response_model=schemas.Docente)
 async def create_docente(docente: schemas.DocenteCreate, db: Session = Depends(get_db)):
@@ -137,8 +184,11 @@ async def delete_docente(id: int, db: Session = Depends(get_db)):
 # --- MATERIAS ---
 
 @app.get("/materias", response_model=List[schemas.Materia])
-async def get_materias(db: Session = Depends(get_db)):
-    return db.query(models.Materia).all()
+async def get_materias(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Materia)
+    if departamento_id:
+        query = query.filter(models.Materia.departamento_id == departamento_id)
+    return query.all()
 
 @app.post("/materias", response_model=schemas.Materia)
 async def create_materia(materia: schemas.MateriaCreate, db: Session = Depends(get_db)):
@@ -178,8 +228,11 @@ async def delete_materia(id: int, db: Session = Depends(get_db)):
 # --- AULAS ---
 
 @app.get("/aulas", response_model=List[schemas.Aula])
-async def get_aulas(db: Session = Depends(get_db)):
-    return db.query(models.Aula).all()
+async def get_aulas(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Aula)
+    if departamento_id:
+        query = query.filter(models.Aula.departamento_id == departamento_id)
+    return query.all()
 
 @app.post("/aulas", response_model=schemas.Aula)
 async def create_aula(aula: schemas.AulaCreate, db: Session = Depends(get_db)):
@@ -215,8 +268,13 @@ async def delete_aula(id: int, db: Session = Depends(get_db)):
 # --- COMISIONES ---
 
 @app.get("/comisiones", response_model=List[schemas.Comision])
-async def get_comisiones(db: Session = Depends(get_db)):
-    return db.query(models.Comision).all()
+async def get_comisiones(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    # Nota: Las comisiones están vinculadas a materias, y las materias a departamentos.
+    # Podríamos filtrar por departamento vinculando tablas.
+    query = db.query(models.Comision).join(models.Materia)
+    if departamento_id:
+        query = query.filter(models.Materia.departamento_id == departamento_id)
+    return query.all()
 
 @app.post("/comisiones", response_model=schemas.Comision)
 async def create_comision(comision: schemas.ComisionCreate, db: Session = Depends(get_db)):
@@ -249,8 +307,11 @@ async def delete_comision(id: int, db: Session = Depends(get_db)):
 # --- CARGOS ---
 
 @app.get("/cargos", response_model=List[schemas.Cargo])
-async def get_cargos(db: Session = Depends(get_db)):
-    return db.query(models.Cargo).all()
+async def get_cargos(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Cargo)
+    if departamento_id:
+        query = query.filter(models.Cargo.departamento_id == departamento_id)
+    return query.all()
 
 @app.post("/cargos", response_model=schemas.Cargo)
 async def create_cargo(cargo: schemas.CargoCreate, db: Session = Depends(get_db)):
@@ -286,8 +347,11 @@ async def delete_cargo(id: int, db: Session = Depends(get_db)):
 # --- CARGO ASIGNACIONES ---
 
 @app.get("/cargo-asignaciones", response_model=List[schemas.CargoAsignacion])
-async def get_cargo_asignaciones(db: Session = Depends(get_db)):
-    return db.query(models.CargoAsignacion).all()
+async def get_cargo_asignaciones(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.CargoAsignacion)
+    if departamento_id:
+        query = query.filter(models.CargoAsignacion.departamento_id == departamento_id)
+    return query.all()
 
 @app.post("/cargo-asignaciones", response_model=schemas.CargoAsignacion)
 async def create_cargo_asignacion(asig: schemas.CargoAsignacionCreate, db: Session = Depends(get_db)):
@@ -420,16 +484,25 @@ async def toggle_recreo_excluido(recreo: schemas.RecreoExcluidoCreate, db: Sessi
 # --- CALENDARIOS ---
 
 @app.get("/calendarios", response_model=List[schemas.Calendario])
-async def get_calendarios(db: Session = Depends(get_db)):
-    cal = db.query(models.Calendario).all()
-    if not cal:
-        # Auto-crear calendario por defecto si no hay ninguno
-        default_cal = models.Calendario(nombre="Calendario Institucional", descripcion="Planificación académica general")
-        db.add(default_cal)
-        db.commit()
-        db.refresh(default_cal)
-        return [default_cal]
-    return cal
+async def get_calendarios(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Calendario)
+    if departamento_id:
+        query = query.filter(models.Calendario.departamento_id == departamento_id)
+    
+    cals = query.all()
+    if not cals:
+        # Si no hay calendarios y se pasó un departamento, creamos uno por defecto para ese depto
+        if departamento_id:
+            default_cal = models.Calendario(
+                nombre="Calendario Institucional", 
+                descripcion="Planificación académica general",
+                departamento_id=departamento_id
+            )
+            db.add(default_cal)
+            db.commit()
+            db.refresh(default_cal)
+            return [default_cal]
+    return cals
 
 @app.post("/calendarios", response_model=schemas.Calendario)
 async def create_calendario(cal: schemas.CalendarioCreate, db: Session = Depends(get_db)):
