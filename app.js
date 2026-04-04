@@ -10,7 +10,7 @@ import { Dashboard } from './js/modules/dashboard.js';
 import { Reportes } from './js/modules/reportes.js';
 import { Cargos } from './js/modules/cargos.js';
 import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js';
-import { Calendario } from './js/modules/calendario.js';
+import { Calendario } from './js/modules/calendario.js?v=2';
 import { PAD } from './js/modules/pad.js';
 import { Instituciones } from './js/modules/instituciones.js';
 
@@ -125,6 +125,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const instId = e.target.value;
             localStorage.setItem('selected-inst-id', instId);
             populateDeptSelector(instId);
+            
+            // Refrescar vista actual para aplicar el filtro de institución
+            const activeLi = document.querySelector('#main-nav li.active a');
+            if (activeLi) {
+                loadView(activeLi.getAttribute('data-route'));
+            }
         };
 
         // Cargar departamentos para la institución seleccionada
@@ -136,12 +142,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!selector) return;
 
         if (!instId) {
-            selector.innerHTML = '<option value="">Todos los Departamentos</option>';
+            selector.innerHTML = '<option value="">Todos los Departamentos / Carreras</option>';
             return;
         }
         
         const deptos = await Departamentos.list(instId);
-        selector.innerHTML = '<option value="">Todos los Departamentos</option>' + 
+        selector.innerHTML = '<option value="">Todos los Departamentos / Carreras</option>' + 
             deptos.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('');
             
         // Restaurar selección previa
@@ -195,6 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (route === 'editor') {
             title.textContent = 'Editor de Horarios';
             content.classList.add('minimal-padding');
+        } else if (route === 'departamentos') {
+            title.textContent = 'Departamentos / Carreras';
         } else {
             title.textContent = route.charAt(0).toUpperCase() + route.slice(1);
         }

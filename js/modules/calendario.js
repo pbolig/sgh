@@ -1,3 +1,5 @@
+import { Auth } from './auth.js';
+
 export const Calendario = {
     currentView: 'annual', // 'annual', 'monthly', 'docente'
     selectedMonthIdx: 0,
@@ -36,7 +38,7 @@ export const Calendario = {
         try {
             const [cats, evts, notes, asigs] = await Promise.all([
                 fetch(`/api/calendario_categorias?calendario_id=${this.calendarioId}`).then(r => r.json()),
-                fetch(`/api/calendario_eventos?calendario_id=${this.calendarioId}`).then(r => r.json()),
+                fetch(`/api/calendario_eventos?calendario_id=${this.calendarioId}${deptoId ? '&departamento_id='+deptoId : ''}`).then(r => r.json()),
                 fetch(`/api/notas_adhesivas?calendario_id=${this.calendarioId}`).then(r => r.json()),
                 fetch(`/api/asignaciones${deptoId ? '?departamento_id='+deptoId : ''}`).then(r => r.json())
             ]);
@@ -190,6 +192,13 @@ export const Calendario = {
                     <div class="modal-desc-box">
                         <label>Descripción (opcional):</label>
                         <textarea id="cal-event-desc" placeholder="Ej: Feriado Nacional, Exámenes finales..."></textarea>
+                    </div>
+                    <div class="form-group" style="margin-top: 15px;">
+                        <label>Alcance del Evento:</label>
+                        <select id="cal-event-scope" class="select-modern-mini">
+                            <option value="global">🏢 Institucional (Toda la institución)</option>
+                            <option value="dept" selected>🎓 Específico de esta Carrera</option>
+                        </select>
                     </div>
                     <div class="modal-private-row">
                         <input type="checkbox" id="cal-event-private">
@@ -381,9 +390,6 @@ export const Calendario = {
             const eventsAttr = dayEvents.length > 0 ? `data-events='${JSON.stringify(dayEvents).replace(/'/g, "&apos;")}'` : "";
 
             let dotsHtml = '';
-            const showBadge = (isDocente || isAnnual) && evts.length > 0;
-            const docenteBadge = showBadge ? `<span class="docente-evt-badge" title="${evts.length} eventos">${evts.length}</span>` : '';
-
             if (!isDocente && !isAnnual) {
                 dotsHtml = evts.map(e => {
                     const privateClass = e.es_privado ? 'is-private' : '';
@@ -400,7 +406,7 @@ export const Calendario = {
                     <span class="dnum">${d}</span>
                     ${workloadBadge}
                     <div class="dstack">
-                        ${dotsHtml}${docenteBadge}
+                        ${dotsHtml}
                     </div>
                 </div>
             `;
@@ -445,9 +451,116 @@ export const Calendario = {
     },
 
     openModal(e) {
+        const dates = this.getDateRange(this.selStart, this.selEnd || this.selStart);
+        const existingEvents = [];
+        const seenIds = new Set();
+
+        dates.forEach(fecha => {
+            const evts = this.db.events[fecha] || [];
+            evts.forEach(ev => {
+                if (!seenIds.has(ev.id)) {
+                    existingEvents.push(ev);
+                    seenIds.add(ev.id);
+                }
+            });
+        });
+
         const modal = document.getElementById('cal-modal-overlay');
+        const modalContent = modal.querySelector('.cal-modal');
+        
+        let existingHtml = '';
+        if (existingEvents.length > 0) {
+            existingHtml = `
+                <div class="modal-section">
+                    <h4 class="section-title"><i class="fas fa-list"></i> Eventos en este rango</h4>
+                    <div class="modal-existing-list">
+                        ${existingEvents.map(ev => `
+                            <div class="modal-existing-item" style="border-left-color: ${ev.categoria.color}">
+                                <div class="existing-info">
+                                    <strong>${ev.categoria.nombre}:</strong> ${ev.descripcion}
+                                    <small>${ev.es_privado ? '🔒 Privado' : ''}</small>
+                                </div>
+                                <button class="btn-icon-small btn-del" onclick="Calendario.deleteSpecificEvent(${ev.id})" title="Eliminar este evento">×</button>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        modalContent.innerHTML = `
+            <div class="modal-header">
+                <h2 class="premium-title">Asignar Categoría</h2>
+                <button class="btn-close-modal" onclick="Calendario.closeModal()">×</button>
+            </div>
+            
+            <div class="modal-horizontal-layout">
+                <div class="modal-col-left">
+                    ${existingHtml}
+                    <div class="modal-section">
+                        <h4 class="section-title"><i class="fas fa-plus-circle"></i> Seleccionar Categoría</h4>
+                        <div class="modal-cat-grid">
+                            ${this.db.categories.map(c => `
+                                <button class="modal-cat-btn" onclick="Calendario.applyEvent(${c.id})" style="border-left: 5px solid ${c.color}">
+                                    ${c.nombre}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <div class="modal-actions-inline">
+                         <button class="btn-danger-outline-mini" onclick="Calendario.clearRange()">Limpiar Rango</button>
+                         <button class="btn-secondary-mini" onclick="Calendario.closeModal()">Cerrar</button>
+                    </div>
+                </div>
+
+                <div class="modal-col-right">
+                    <div class="modal-section">
+                        <h4 class="section-title"><i class="fas fa-edit"></i> Detalles del Evento</h4>
+                        <div class="modal-desc-box">
+                            <label>Descripción <span style="color: #ef4444">(obligatoria)</span>:</label>
+                            <textarea id="cal-event-desc" placeholder="Ej: Feriado Nacional, Exámenes finales..." required></textarea>
+                        </div>
+                        
+                        <div class="modal-form-inline">
+                            <div class="form-group">
+                                <label>Alcance:</label>
+                                <select id="cal-event-scope" class="select-modern-mini">
+                                    <option value="global" selected>🏢 Institucional (Global)</option>
+                                    <option value="dept">🎓 Carrera</option>
+                                </select>
+                            </div>
+                            <div class="modal-checks-horiz">
+                                <label class="modal-check-item">
+                                    <input type="checkbox" id="cal-event-private">
+                                    <span>🔒 Privado</span>
+                                </label>
+                                <label class="modal-check-item">
+                                    <input type="checkbox" id="cal-event-no-laborable">
+                                    <span style="color: #ef4444; font-weight: bold;">🚫 No Lab.</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
         modal.classList.add('active');
-        // Posicionar cerca del click si se quisiera, pero centrado está bien para SPA
+    },
+
+    async deleteSpecificEvent(id) {
+        if (!confirm("¿Deseas eliminar este evento específico?")) return;
+        try {
+            await fetch(`/api/calendario_eventos/${id}`, { 
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            });
+            await this.loadData();
+            this.openModal(); // Refrescar modal
+        } catch (error) {
+            console.error("Error eliminando evento:", error);
+        }
     },
 
     closeModal() {
@@ -458,23 +571,39 @@ export const Calendario = {
     },
 
     async applyEvent(catId) {
-        const desc = document.getElementById('cal-event-desc').value;
+        const descEl = document.getElementById('cal-event-desc');
+        const desc = descEl.value.trim();
+        if (!desc) {
+            alert("La descripción es obligatoria.");
+            descEl.focus();
+            return;
+        }
         const isPrivate = document.getElementById('cal-event-private').checked;
         const isNoLaborable = document.getElementById('cal-event-no-laborable').checked;
+        const scope = document.getElementById('cal-event-scope').value;
+        const currentDeptoId = document.getElementById('dept-selector')?.value;
+        
+        // El departamento_id es NULL si es global, o el ID actual si es para la carrera
+        const deptoIdToSave = scope === 'global' ? null : (currentDeptoId ? parseInt(currentDeptoId) : null);
+
         const dates = this.getDateRange(this.selStart, this.selEnd);
         
         try {
             const promises = dates.map(fecha => {
                 return fetch(`/api/calendario_eventos`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${Auth.getToken()}`
+                    },
                     body: JSON.stringify({
                         calendario_id: this.calendarioId,
                         fecha: fecha,
                         categoria_id: catId,
                         descripcion: desc,
                         es_privado: isPrivate,
-                        es_no_laborable: isNoLaborable
+                        es_no_laborable: isNoLaborable,
+                        departamento_id: deptoIdToSave
                     })
                 });
             });
@@ -815,45 +944,48 @@ export const Calendario = {
                     }
                 }
 
-                // --- AGRUPAR EVENTOS CONSECUTIVOS (Ej: 9 al 13) ---
-                const groupedEvents = [];
-                if (monthEvents.length > 0) {
-                    let currentGroup = { 
-                        startDay: monthEvents[0].day, 
-                        endDay: monthEvents[0].day, 
-                        desc: monthEvents[0].desc 
-                    };
-                    
-                    for (let i = 1; i < monthEvents.length; i++) {
-                        const evt = monthEvents[i];
-                        // Si es la misma descripción y es el día siguiente, extendemos el grupo.
-                        // Nota: Si el mismo día hay 2 eventos iguales (raro), se maneja igual.
-                        if (evt.desc === currentGroup.desc && (evt.day === currentGroup.endDay || evt.day === currentGroup.endDay + 1)) {
-                            currentGroup.endDay = evt.day;
-                        } else {
-                            groupedEvents.push(currentGroup);
-                            currentGroup = { startDay: evt.day, endDay: evt.day, desc: evt.desc };
+                // --- AGRUPAR EVENTOS POR DESCRIPCIÓN (Ej: 1 al 5, 8 al 12) ---
+                const eventMap = {}; 
+                monthEvents.forEach(e => {
+                    if (!eventMap[e.desc]) eventMap[e.desc] = [];
+                    if (!eventMap[e.desc].includes(e.day)) eventMap[e.desc].push(e.day);
+                });
+
+                const groupedEntries = [];
+                Object.keys(eventMap).forEach(desc => {
+                    const days = eventMap[desc].sort((a, b) => a - b);
+                    const ranges = [];
+                    if (days.length > 0) {
+                        let start = days[0];
+                        let end = days[0];
+                        for (let i = 1; i < days.length; i++) {
+                            if (days[i] === end + 1) {
+                                end = days[i];
+                            } else {
+                                ranges.push(start === end ? `${start}` : `${start} al ${end}`);
+                                start = days[i];
+                                end = days[i];
+                            }
                         }
+                        ranges.push(start === end ? `${start}` : `${start} al ${end}`);
                     }
-                    groupedEvents.push(currentGroup);
-                }
+                    groupedEntries.push({ dateLabel: ranges.join(', ') + ':', desc });
+                });
 
                 let refsHtml = '';
-                groupedEvents.forEach(evt => {
-                    const dateLabel = evt.startDay === evt.endDay ? `${evt.startDay}:` : `${evt.startDay} al ${evt.endDay}:`;
+                groupedEntries.forEach(evt => {
                     refsHtml += `
                         <div class="ref-line">
-                            <span class="ref-date">${dateLabel}</span>
+                            <span class="ref-date">${evt.dateLabel}</span>
                             <span class="ref-desc">${evt.desc}</span>
                         </div>
                     `;
                 });
 
                 // Si no hay muchos eventos (o se agruparon), ponemos renglones vacíos para notas manuales.
-                if (groupedEvents.length < 10) {
-                    for (let i = groupedEvents.length; i < 11; i++) {
-                         refsHtml += `<div class="ref-line"></div>`;
-                    }
+                const extraRenglones = Math.max(0, 11 - groupedEntries.length);
+                for (let i = 0; i < extraRenglones; i++) {
+                     refsHtml += `<div class="ref-line"></div>`;
                 }
 
                 pageHtml += `

@@ -11,7 +11,7 @@ export const Departamentos = {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
             });
-            if (!response.ok) throw new Error('Error al obtener departamentos');
+            if (!response.ok) throw new Error('Error al obtener departamentos / carreras');
             return await response.json();
         } catch (error) {
             console.error(error);
@@ -89,7 +89,7 @@ export const Departamentos = {
 
             if (!response.ok) {
                 const err = await response.json();
-                throw new Error(err.detail || 'Error al guardar departamento');
+                throw new Error(err.detail || 'Error al guardar departamento / carrera');
             }
             return { success: true, data: await response.json() };
         } catch (error) {
@@ -105,7 +105,7 @@ export const Departamentos = {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
             });
-            if (!response.ok) throw new Error('Error al eliminar departamento');
+            if (!response.ok) throw new Error('Error al eliminar departamento / carrera');
             return { success: true };
         } catch (error) {
             return { success: false, error: error.message };
@@ -119,8 +119,8 @@ export const Departamentos = {
         
         container.innerHTML = `
             <div class="view-header module-header">
-                <h2>Gestión de Departamentos</h2>
-                <button id="btn-add-depto" class="btn-primary">+ Nuevo Departamento</button>
+                <h2>Gestión de Departamentos / Carreras</h2>
+                <button id="btn-add-depto" class="btn-primary">+ Nuevo Depto / Carrera</button>
             </div>
             <table class="data-table">
                 <thead>
@@ -158,7 +158,7 @@ export const Departamentos = {
         };
 
         window.deleteDepto = async (id) => {
-            const warningMsg = `¡ATENCIÓN! Está por eliminar este departamento.\n\n` +
+            const warningMsg = `¡ATENCIÓN! Está por eliminar este departamento / carrera.\n\n` +
                                `Esta acción es irreversible e INCLUYE EL BORRADO EN CASCADA de:\n` +
                                `• Todas las Materias vinculadas\n` +
                                `• Todas las Aulas vinculadas\n` +
@@ -261,7 +261,7 @@ export const Departamentos = {
         modal.className = 'modal';
         modal.innerHTML = `
             <div class="modal-content">
-                <h3>${isEdit ? 'Editar' : 'Nuevo'} Departamento</h3>
+                <h3>${isEdit ? 'Editar' : 'Nuevo'} Departamento / Carrera</h3>
                 <form id="depto-form">
                     <input type="hidden" name="id" value="${depto?.id || ''}">
                     <input type="hidden" name="institucion_id" value="${depto?.institucion_id || instId || ''}">

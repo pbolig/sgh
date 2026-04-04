@@ -41,7 +41,7 @@ export const Reportes = {
             <div id="reportes-view" class="view">
                 <div class="reports-header animated slideInDown">
                     <h2>Módulo de Reportes Acumulados</h2>
-                    <p class="reports-subtitle">Analice estadísticas cruzadas en tiempo real de Docentes, Departamentos y Padrón Diario.</p>
+                    <p class="reports-subtitle">Analice estadísticas cruzadas en tiempo real de Docentes, Departamentos / Carreras y Padrón Diario.</p>
                 </div>
                 
                 <div class="reports-controls animated fadeIn">
@@ -50,7 +50,7 @@ export const Reportes = {
                         <select id="report-type" class="select-modern">
                             <option value="" disabled selected>-- Elija --</option>
                             <option value="docente">🧍‍♂️ Por Docente</option>
-                            <option value="departamento">🏛️ Por Departamento</option>
+                            <option value="departamento">🏛️ Por Departamento / Carrera</option>
                             <option value="dia">🗓️ Padrón por Día</option>
                         </select>
                     </div>
@@ -63,9 +63,9 @@ export const Reportes = {
                     </div>
                     
                     <div class="form-group reports-form-group filter-group hidden" id="filter-departamento-group">
-                        <label>Buscar Departamento</label>
+                        <label>Buscar Departamento / Carrera</label>
                         <select id="filter-departamento" class="select-modern">
-                            <option value="" disabled selected>-- Todos los Departamentos --</option>
+                            <option value="" disabled selected>-- Todos los Departamentos / Carreras --</option>
                         </select>
                     </div>
 
@@ -263,7 +263,7 @@ export const Reportes = {
                         <thead>
                             <tr>
                                 <th>Nombre del Cargo</th>
-                                <th>Departamento</th>
+                                <th>Departamento / Carrera</th>
                                 <th>Horas Reloj</th>
                             </tr>
                         </thead>
@@ -288,7 +288,7 @@ export const Reportes = {
                                 <th>Horario</th>
                                 <th>Materia y Comisión</th>
                                 <th>Horas Reloj (Eq)</th>
-                                <th>Departamento</th>
+                                <th>Depto / Carrera</th>
                                 <th>Aula</th>
                             </tr>
                         </thead>
@@ -364,7 +364,7 @@ export const Reportes = {
                 <div class="metric-card primary">
                     <span class="mc-icon">🏛️</span>
                     <div class="mc-data">
-                        <small>Departamento</small>
+                        <small>Departamento / Carrera</small>
                         <h3>${dpt.nombre}</h3>
                     </div>
                 </div>
@@ -513,7 +513,7 @@ export const Reportes = {
                 <div class="metric-card depts">
                     <span class="mc-icon">🏫</span>
                     <div class="mc-data">
-                        <small>Departamentos Activos</small>
+                        <small>Departamentos / Carreras Activos</small>
                         <h3>${deptSet.size}</h3>
                     </div>
                 </div>
@@ -529,7 +529,7 @@ export const Reportes = {
                                 <th>Tipo</th>
                                 <th>Personal</th>
                                 <th>Materia / Cargo</th>
-                                <th>Departamento</th>
+                                <th>Depto / Carrera</th>
                                 <th>Aula</th>
                             </tr>
                         </thead>

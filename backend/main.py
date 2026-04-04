@@ -147,12 +147,23 @@ async def delete_departamento(id: int, db: Session = Depends(get_db)):
 async def get_docentes(institucion_id: Optional[int] = None, db: Session = Depends(get_db)):
     query = db.query(models.Docente)
     if institucion_id:
-        query = query.filter(models.Docente.institucion_id == institucion_id)
+        # Filtrar buscando en la tabla de asociación
+        query = query.join(models.DocenteInstitucion).filter(models.DocenteInstitucion.institucion_id == institucion_id)
     return query.all()
 
 @app.post("/docentes", response_model=schemas.Docente)
 async def create_docente(docente: schemas.DocenteCreate, db: Session = Depends(get_db)):
-    new_docente = models.Docente(**docente.dict())
+    data = docente.dict()
+    inst_ids = data.pop("institucion_ids", [])
+    dept_ids = data.pop("departamento_ids", [])
+    
+    new_docente = models.Docente(**data)
+    
+    if inst_ids:
+        new_docente.instituciones = db.query(models.Institucion).filter(models.Institucion.id.in_(inst_ids)).all()
+    if dept_ids:
+        new_docente.departamentos = db.query(models.Departamento).filter(models.Departamento.id.in_(dept_ids)).all()
+        
     db.add(new_docente)
     db.commit()
     db.refresh(new_docente)
@@ -164,8 +175,17 @@ async def update_docente(id: int, docente: schemas.DocenteUpdate, db: Session = 
     if not db_docente:
         raise HTTPException(status_code=404, detail="Docente no encontrado")
     
-    for key, value in docente.dict(exclude_unset=True).items():
+    data = docente.dict(exclude_unset=True)
+    inst_ids = data.pop("institucion_ids", None)
+    dept_ids = data.pop("departamento_ids", None)
+    
+    for key, value in data.items():
         setattr(db_docente, key, value)
+        
+    if inst_ids is not None:
+        db_docente.instituciones = db.query(models.Institucion).filter(models.Institucion.id.in_(inst_ids)).all()
+    if dept_ids is not None:
+        db_docente.departamentos = db.query(models.Departamento).filter(models.Departamento.id.in_(dept_ids)).all()
     
     db.commit()
     db.refresh(db_docente)
@@ -203,7 +223,7 @@ async def create_materia(materia: schemas.MateriaCreate, db: Session = Depends(g
     return new_materia
 
 @app.put("/materias/{id}", response_model=schemas.Materia)
-async def update_materia(id: int, materia: schemas.MateriaCreate, db: Session = Depends(get_db)):
+async def update_materia(id: int, materia: schemas.MateriaUpdate, db: Session = Depends(get_db)):
     db_materia = db.query(models.Materia).filter(models.Materia.id == id).first()
     if not db_materia:
         raise HTTPException(status_code=404, detail="Materia no encontrada")
@@ -307,11 +327,8 @@ async def delete_comision(id: int, db: Session = Depends(get_db)):
 # --- CARGOS ---
 
 @app.get("/cargos", response_model=List[schemas.Cargo])
-async def get_cargos(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
-    query = db.query(models.Cargo)
-    if departamento_id:
-        query = query.filter(models.Cargo.departamento_id == departamento_id)
-    return query.all()
+async def get_cargos(db: Session = Depends(get_db)):
+    return db.query(models.Cargo).all()
 
 @app.post("/cargos", response_model=schemas.Cargo)
 async def create_cargo(cargo: schemas.CargoCreate, db: Session = Depends(get_db)):
@@ -568,8 +585,12 @@ async def delete_calendario_categoria(id: int, db: Session = Depends(get_db)):
 # --- EVENTOS CALENDARIO ---
 
 @app.get("/calendario_eventos", response_model=List[schemas.CalendarioEvento])
-async def get_calendario_eventos(calendario_id: int, db: Session = Depends(get_db)):
-    return db.query(models.CalendarioEvento).filter(models.CalendarioEvento.calendario_id == calendario_id).all()
+async def get_calendario_eventos(calendario_id: int, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.CalendarioEvento).filter(models.CalendarioEvento.calendario_id == calendario_id)
+    if departamento_id:
+        # Retornar eventos del departamento O institucionales (departamento_id IS NULL)
+        query = query.filter((models.CalendarioEvento.departamento_id == departamento_id) | (models.CalendarioEvento.departamento_id == None))
+    return query.all()
 
 @app.post("/calendario_eventos", response_model=schemas.CalendarioEvento)
 async def create_calendario_evento(evt: schemas.CalendarioEventoCreate, db: Session = Depends(get_db)):

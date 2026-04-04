@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SGH - Sistema de Gestión de Horarios</title>
     <meta name="description" content="Sistema de Gestión de Horarios Institucionales con persistencia en Turso.">
-    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/styles.css?v=5">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
@@ -52,7 +52,7 @@
                         <li class="active"><a href="#" data-route="dashboard">📊 <span>Dashboard</span></a></li>
                         <li><a href="#" data-route="editor">🗓️ <span>Editor de Horarios</span></a></li>
                         <li><a href="#" data-route="docentes">👨‍🏫 <span>Docentes</span></a></li>
-                        <li><a href="#" data-route="departamentos">🏛️ <span>Departamentos</span></a></li>
+                        <li><a href="#" data-route="departamentos">🏛️ <span>Departamentos / Carreras</span></a></li>
                         <li><a href="#" data-route="materias">📚 <span>Materias</span></a></li>
                         <li><a href="#" data-route="aulas">🏫 <span>Aulas</span></a></li>
                         <li><a href="#" data-route="comisiones">👥 <span>Comisiones</span></a></li>
@@ -78,10 +78,10 @@
                         <h2 id="page-title">Dashboard</h2>
                     </div>
                     <div class="header-actions">
-                        <select id="inst-selector" class="select-modern">
+                        <select id="inst-selector" class="select-modern" title="Seleccionar Institución">
                             <!-- Instituciones -->
                         </select>
-                        <select id="dept-selector" class="select-modern">
+                        <select id="dept-selector" class="select-modern" title="Seleccionar Departamento / Carrera">
                             <!-- Departamentos -->
                         </select>
                         <button id="print-btn" class="btn-icon">🖨️</button>

@@ -69,7 +69,9 @@ class Departamento(DepartamentoBase):
 
 # Esquemas de Docente
 class DocenteBase(BaseModel):
-    institucion_id: Optional[int] = None
+    institucion_id: Optional[int] = None # Legacy
+    institucion_ids: Optional[List[int]] = []
+    departamento_ids: Optional[List[int]] = []
     apellido: str
     nombre: Optional[str] = None
     email: Optional[str] = None
@@ -80,6 +82,8 @@ class DocenteCreate(DocenteBase):
     pass
 
 class DocenteUpdate(BaseModel):
+    institucion_ids: Optional[List[int]] = None
+    departamento_ids: Optional[List[int]] = None
     apellido: Optional[str] = None
     nombre: Optional[str] = None
     email: Optional[str] = None
@@ -88,6 +92,8 @@ class DocenteUpdate(BaseModel):
 
 class Docente(DocenteBase):
     id: int
+    instituciones: List[Institucion] = []
+    departamentos: List[Departamento] = []
     created_at: datetime
     updated_at: datetime
     class Config:
@@ -97,11 +103,24 @@ class Docente(DocenteBase):
 class MateriaBase(BaseModel):
     nombre: str
     codigo: str
+    codigo_interno: Optional[str] = None
     departamento_id: int
+    anio: Optional[int] = 1 # Año/Nivel de la carrera
+    carga_horaria_modulos: Optional[int] = 0
+    correlativas: Optional[str] = None # JSON string
     activo: Optional[int] = 1
 
 class MateriaCreate(MateriaBase):
     pass
+
+class MateriaUpdate(BaseModel):
+    codigo: Optional[str] = None
+    codigo_interno: Optional[str] = None
+    departamento_id: Optional[int] = None
+    anio: Optional[int] = None
+    carga_horaria_modulos: Optional[int] = None
+    correlativas: Optional[str] = None
+    activo: Optional[int] = None
 
 class Materia(MateriaBase):
     id: int
@@ -319,6 +338,7 @@ class CalendarioCategoria(CalendarioCategoriaBase):
 
 class CalendarioEventoBase(BaseModel):
     calendario_id: int
+    departamento_id: Optional[int] = None
     fecha: str
     categoria_id: int
     descripcion: Optional[str] = None

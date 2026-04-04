@@ -44,10 +44,21 @@ class Departamento(Base):
     recreos_excluidos = relationship("RecreoExcluido", back_populates="departamento", cascade="all, delete-orphan")
     cargos_asignados = relationship("CargoAsignacion", back_populates="departamento", cascade="all, delete-orphan")
 
+# Tablas de Asociación para Docentes (Muchos a Muchos)
+class DocenteInstitucion(Base):
+    __tablename__ = "docente_institucion"
+    docente_id = Column(Integer, ForeignKey("docentes.id", ondelete="CASCADE"), primary_key=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), primary_key=True)
+
+class DocenteDepartamento(Base):
+    __tablename__ = "docente_departamento"
+    docente_id = Column(Integer, ForeignKey("docentes.id", ondelete="CASCADE"), primary_key=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), primary_key=True)
+
 class Docente(Base):
     __tablename__ = "docentes"
     id = Column(Integer, primary_key=True, index=True)
-    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), nullable=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), nullable=True) # Legacy, migrar a M2M
     apellido = Column(String, index=True)
     nombre = Column(String, index=True)
     email = Column(String, nullable=True)
@@ -56,14 +67,20 @@ class Docente(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+    instituciones = relationship("Institucion", secondary="docente_institucion")
+    departamentos = relationship("Departamento", secondary="docente_departamento")
     cargos_asignados = relationship("CargoAsignacion", back_populates="docente")
 
 class Materia(Base):
     __tablename__ = "materias"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, index=True)
-    codigo = Column(String, unique=True, index=True)
+    codigo = Column(String, index=True)
+    codigo_interno = Column(String, nullable=True, index=True)
     departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
+    anio = Column(Integer, default=1) # Año/Nivel de la carrera
+    carga_horaria_modulos = Column(Integer, default=0) # Módulos de 40 min
+    correlativas = Column(Text, nullable=True) # JSON array de códigos internos
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
@@ -207,6 +224,7 @@ class CalendarioEvento(Base):
     __tablename__ = "calendario_eventos"
     id = Column(Integer, primary_key=True, index=True)
     calendario_id = Column(Integer, ForeignKey("calendarios.id"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True) # NULL = Institucional
     fecha = Column(String, index=True) # Formato YYYY-MM-DD
     categoria_id = Column(Integer, ForeignKey("calendario_categorias.id"))
     descripcion = Column(Text, nullable=True)
@@ -214,6 +232,7 @@ class CalendarioEvento(Base):
     es_no_laborable = Column(Boolean, default=False)
 
     categoria = relationship("CalendarioCategoria")
+    departamento = relationship("Departamento")
 
 class NotaAdhesiva(Base):
     __tablename__ = "notas_adhesivas"
