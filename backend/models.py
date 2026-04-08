@@ -39,7 +39,7 @@ class Departamento(Base):
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
     materias = relationship("Materia", back_populates="departamento", cascade="all, delete-orphan")
-    aulas = relationship("Aula", back_populates="departamento", cascade="all, delete-orphan")
+    aulas = relationship("Aula", secondary="aula_departamento", back_populates="departamentos")
     asignaciones = relationship("Asignacion", back_populates="departamento", cascade="all, delete-orphan")
     recreos_excluidos = relationship("RecreoExcluido", back_populates="departamento", cascade="all, delete-orphan")
     cargos_asignados = relationship("CargoAsignacion", back_populates="departamento", cascade="all, delete-orphan")
@@ -53,6 +53,11 @@ class DocenteInstitucion(Base):
 class DocenteDepartamento(Base):
     __tablename__ = "docente_departamento"
     docente_id = Column(Integer, ForeignKey("docentes.id", ondelete="CASCADE"), primary_key=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), primary_key=True)
+
+class AulaDepartamento(Base):
+    __tablename__ = "aula_departamento"
+    aula_id = Column(Integer, ForeignKey("aulas.id", ondelete="CASCADE"), primary_key=True)
     departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), primary_key=True)
 
 class Docente(Base):
@@ -90,13 +95,14 @@ class Materia(Base):
 class Aula(Base):
     __tablename__ = "aulas"
     id = Column(Integer, primary_key=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
+    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), nullable=True)
     nombre = Column(String, index=True)
     capacidad = Column(Integer, nullable=True)
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    departamento = relationship("Departamento")
+    institucion = relationship("Institucion")
+    departamentos = relationship("Departamento", secondary="aula_departamento", back_populates="aulas")
 
 class Comision(Base):
     __tablename__ = "comisiones"

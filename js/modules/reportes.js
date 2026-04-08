@@ -201,7 +201,7 @@ export const Reportes = {
                 const e = Reportes.timeToMins(m.hora_fin);
                 totalHorasMins += (e - s);
 
-                const dpt = departamentos.find(dp => dp.id === aula.departamento_id);
+                const dpt = departamentos.find(dp => dp.id === asig.departamento_id);
                 if(dpt) deptosVistos.add(dpt.nombre);
 
                 const com = comisiones.find(c => c.id === asig.comision_id);
@@ -320,8 +320,7 @@ export const Reportes = {
         const { departamentos, asignaciones, modulos, aulas, materias, docentes, comisiones, cargos, cargoAsignaciones } = Reportes.datosMaestros;
         const dpt = departamentos.find(dp => dp.id === deptoId);
         
-        const aulasDptIds = aulas.filter(a => a.departamento_id === deptoId).map(a => a.id);
-        const asigsDepto = asignaciones.filter(as => aulasDptIds.includes(as.aula_id));
+        const asigsDepto = asignaciones;
         const asigsCargosDepto = (cargoAsignaciones || []).filter(c => c.departamento_id === deptoId);
 
         if(asigsDepto.length === 0 && asigsCargosDepto.length === 0) {
@@ -441,7 +440,7 @@ export const Reportes = {
             const doc = docentes.find(dc => dc.id === asig.docente_id);
             const com = comisiones.find(c => c.id === asig.comision_id);
             const mat = materias.find(ma => ma.id === (com ? com.materia_id : null));
-            const dpt = departamentos.find(dp => dp.id === (aula ? aula.departamento_id : null));
+            const dpt = departamentos.find(dp => dp.id === asig.departamento_id);
 
             if(m && aula) {
                 totalHorasMins += (Reportes.timeToMins(m.hora_fin) - Reportes.timeToMins(m.hora_inicio));

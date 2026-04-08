@@ -3,10 +3,14 @@ import { Auth } from './auth.js';
 import { Materias } from './materias.js';
 
 export const Comisiones = {
-    list: async (deptoId = null) => {
+    list: async (deptoId = null, anio = null, instId = null) => {
         try {
             let url = '/api/comisiones';
-            if (deptoId) url += `?departamento_id=${deptoId}`;
+            const params = new URLSearchParams();
+            if (deptoId) params.append('departamento_id', deptoId);
+            if (anio) params.append('anio', anio);
+            if (instId) params.append('institucion_id', instId);
+            if (params.toString()) url += '?' + params.toString();
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
@@ -37,7 +41,9 @@ export const Comisiones = {
 
             if (!response.ok) {
                 const err = await response.json();
-                throw new Error(err.detail || 'Error al guardar comisión');
+                const msg = err.detail || 'Error al guardar comisión';
+                alert(msg);
+                throw new Error(msg);
             }
             return { success: true, data: await response.json() };
         } catch (error) {
@@ -62,10 +68,11 @@ export const Comisiones = {
 
     render: async (containerId) => {
         const deptoId = document.getElementById('dept-selector')?.value;
+        const instId = document.getElementById('inst-selector')?.value;
         const container = document.getElementById(containerId);
         let [comisiones, materias] = await Promise.all([
-            Comisiones.list(deptoId), 
-            Materias.list(deptoId)
+            Comisiones.list(deptoId, null, instId), 
+            Materias.list(deptoId, instId)
         ]);
         
         // Ordenar por código (de forma alfanumérica robusta)
@@ -147,6 +154,7 @@ export const Comisiones = {
                         <select name="turno" required>
                             <option value="mañana" ${comision?.turno === 'mañana' ? 'selected' : ''}>Mañana</option>
                             <option value="tarde" ${comision?.turno === 'tarde' ? 'selected' : ''}>Tarde</option>
+                            <option value="noche" ${comision?.turno === 'noche' ? 'selected' : ''}>Noche</option>
                         </select>
                     </div>
                     <div class="modal-actions">

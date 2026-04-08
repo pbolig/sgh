@@ -21,14 +21,13 @@ export const Departamentos = {
 
     listAulas: async (deptoId) => {
         try {
-            const response = await fetch(`/api/aulas`, {
+            const response = await fetch(`/api/aulas?departamento_id=${deptoId}`, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
                 }
             });
             if (!response.ok) throw new Error('Error al obtener aulas');
-            const allAulas = await response.json();
-            return allAulas.filter(a => a.departamento_id == deptoId);
+            return await response.json();
         } catch (error) {
             console.error(error);
             return [];
@@ -245,11 +244,18 @@ export const Departamentos = {
         document.getElementById('aula-form').onsubmit = async (e) => {
             e.preventDefault();
             const nombre = e.target.nombre.value;
-            const res = await Departamentos.saveAula({ departamento_id: deptoId, nombre: nombre });
+            const instId = document.getElementById('inst-selector')?.value;
+            const res = await Departamentos.saveAula({ 
+                institucion_id: parseInt(instId),
+                nombre: nombre, 
+                departamento_ids: [deptoId] 
+            });
             if (res.success) {
                 e.target.reset();
                 const newAulas = await Departamentos.listAulas(deptoId);
                 document.getElementById('aulas-list').innerHTML = renderTable(newAulas);
+            } else {
+                alert(res.error || 'Error al guardar aula');
             }
         };
     },

@@ -1,0 +1,25 @@
+--- COMISIONES COLUMNS ---
+('id', 'integer', 'NO')
+('codigo', 'character varying', 'YES')
+('materia_id', 'integer', 'YES')
+('turno', 'character varying', 'YES')
+('activo', 'integer', 'YES')
+('created_at', 'timestamp without time zone', 'YES')
+('updated_at', 'timestamp without time zone', 'YES')
+
+--- COMISIONES DATA SAMPLE ---
+(1, 'C1DM1', None, 'mañana', 1, datetime.datetime(2026, 3, 12, 19, 7, 27, 322679), datetime.datetime(2026, 3, 30, 14, 43, 25, 530477))
+(7, 'C1DM2', None, 'mañana', 1, datetime.datetime(2026, 3, 13, 11, 45, 50, 972816), datetime.datetime(2026, 3, 30, 14, 43, 25, 530480))
+(18, 'C1BM1', None, 'mañana', 1, datetime.datetime(2026, 3, 13, 11, 53, 30, 159014), datetime.datetime(2026, 3, 30, 14, 43, 25, 530480))
+
+--- MATERIAS COLUMNS ---
+('id', 'integer', 'NO')
+('nombre', 'character varying', 'YES')
+('codigo', 'character varying', 'YES')
+('departamento_id', 'integer', 'YES')
+('activo', 'integer', 'YES')
+('created_at', 'timestamp without time zone', 'YES')
+('codigo_interno', 'character varying', 'YES')
+('carga_horaria_modulos', 'integer', 'YES')
+('correlativas', 'text', 'YES')
+('anio', 'integer', 'YES')

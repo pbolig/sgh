@@ -4,10 +4,13 @@ import { Departamentos } from './departamentos.js';
 import { Instituciones } from './instituciones.js';
 
 export const Materias = {
-    list: async (deptoId = null) => {
+    list: async (deptoId = null, instId = null) => {
         try {
             let url = '/api/materias';
-            if (deptoId) url += `?departamento_id=${deptoId}`;
+            const params = new URLSearchParams();
+            if (deptoId) params.append('departamento_id', deptoId);
+            if (instId) params.append('institucion_id', instId);
+            if (params.toString()) url += '?' + params.toString();
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
@@ -67,7 +70,7 @@ export const Materias = {
         const container = document.getElementById(containerId);
         
         let [materias, deptos, instituciones] = await Promise.all([
-            Materias.list(deptoId), 
+            Materias.list(deptoId, instId), 
             Departamentos.list(instId),
             Instituciones.list()
         ]);

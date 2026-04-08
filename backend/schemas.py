@@ -212,22 +212,25 @@ class CargoAsignacion(CargoAsignacionBase):
 
 # Esquemas de Aula
 class AulaBase(BaseModel):
-    departamento_id: int
+    institucion_id: int
     nombre: str
     capacidad: Optional[int] = None
     activo: Optional[int] = 1
+    departamento_ids: List[int] = []
 
 class AulaCreate(AulaBase):
     pass
 
 class AulaUpdate(BaseModel):
-    departamento_id: Optional[int] = None
+    institucion_id: Optional[int] = None
+    departamento_ids: Optional[List[int]] = None
     nombre: Optional[str] = None
     capacidad: Optional[int] = None
     activo: Optional[int] = None
 
 class Aula(AulaBase):
     id: int
+    departamentos: List[Departamento] = []
     created_at: datetime
     class Config:
         from_attributes = True
@@ -235,7 +238,7 @@ class Aula(AulaBase):
 # Esquemas de Comision
 class ComisionBase(BaseModel):
     codigo: str
-    materia_id: int
+    materia_id: Optional[int] = None
     turno: str
     activo: Optional[int] = 1
 
@@ -244,8 +247,8 @@ class ComisionCreate(ComisionBase):
 
 class Comision(ComisionBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 

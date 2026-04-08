@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 import datetime
 
@@ -204,8 +205,10 @@ async def delete_docente(id: int, db: Session = Depends(get_db)):
 # --- MATERIAS ---
 
 @app.get("/materias", response_model=List[schemas.Materia])
-async def get_materias(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def get_materias(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
     query = db.query(models.Materia)
+    if institucion_id:
+        query = query.join(models.Departamento).filter(models.Departamento.institucion_id == institucion_id)
     if departamento_id:
         query = query.filter(models.Materia.departamento_id == departamento_id)
     return query.all()
@@ -247,16 +250,43 @@ async def delete_materia(id: int, db: Session = Depends(get_db)):
 
 # --- AULAS ---
 
-@app.get("/aulas", response_model=List[schemas.Aula])
-async def get_aulas(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
-    query = db.query(models.Aula)
-    if departamento_id:
-        query = query.filter(models.Aula.departamento_id == departamento_id)
-    return query.all()
+@app.get("/aulas")
+async def get_aulas(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+    try:
+        query = db.query(models.Aula)
+        if institucion_id:
+            query = query.filter(models.Aula.institucion_id == institucion_id)
+        if departamento_id:
+            query = query.join(models.Aula.departamentos).filter(models.Departamento.id == departamento_id)
+        
+        aulas = query.all()
+        result = []
+        for a in aulas:
+            # Población manual de departamento_ids para el frontend
+            dept_ids = [d.id for d in a.departamentos]
+            result.append({
+                "id": a.id,
+                "institucion_id": a.institucion_id,
+                "nombre": a.nombre,
+                "capacidad": a.capacidad,
+                "activo": a.activo,
+                "created_at": a.created_at.isoformat() if a.created_at else None,
+                "departamento_ids": dept_ids
+            })
+        return result
+    except Exception as e:
+        print(f"Error en GET /aulas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/aulas", response_model=schemas.Aula)
 async def create_aula(aula: schemas.AulaCreate, db: Session = Depends(get_db)):
-    new_aula = models.Aula(**aula.dict())
+    data = aula.dict()
+    dept_ids = data.pop("departamento_ids", [])
+    
+    new_aula = models.Aula(**data)
+    if dept_ids:
+        new_aula.departamentos = db.query(models.Departamento).filter(models.Departamento.id.in_(dept_ids)).all()
+        
     db.add(new_aula)
     db.commit()
     db.refresh(new_aula)
@@ -268,8 +298,14 @@ async def update_aula(id: int, aula: schemas.AulaUpdate, db: Session = Depends(g
     if not db_aula:
         raise HTTPException(status_code=404, detail="Aula no encontrada")
     
-    for key, value in aula.dict(exclude_unset=True).items():
+    data = aula.dict(exclude_unset=True)
+    dept_ids = data.pop("departamento_ids", None)
+    
+    for key, value in data.items():
         setattr(db_aula, key, value)
+    
+    if dept_ids is not None:
+        db_aula.departamentos = db.query(models.Departamento).filter(models.Departamento.id.in_(dept_ids)).all()
     
     db.commit()
     db.refresh(db_aula)
@@ -287,33 +323,106 @@ async def delete_aula(id: int, db: Session = Depends(get_db)):
 
 # --- COMISIONES ---
 
-@app.get("/comisiones", response_model=List[schemas.Comision])
-async def get_comisiones(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
-    # Nota: Las comisiones están vinculadas a materias, y las materias a departamentos.
-    # Podríamos filtrar por departamento vinculando tablas.
-    query = db.query(models.Comision).join(models.Materia)
-    if departamento_id:
-        query = query.filter(models.Materia.departamento_id == departamento_id)
-    return query.all()
+@app.get("/comisiones")
+async def get_comisiones(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, anio: Optional[int] = None, db: Session = Depends(get_db)):
+    try:
+        # Nota: Las comisiones están vinculadas a materias, y las materias a departamentos.
+        query = db.query(models.Comision)
+        
+        if institucion_id or departamento_id or anio:
+            query = query.join(models.Materia)
+            
+        if institucion_id:
+            query = query.join(models.Materia.departamento).filter(models.Departamento.institucion_id == institucion_id)
+        if departamento_id:
+            query = query.filter(models.Materia.departamento_id == departamento_id)
+        if anio:
+            query = query.filter(models.Materia.anio == anio)
+            
+        comisiones = query.all()
+        
+        # Serialización manual ultra-resiliente para evitar Error 500 de Pydantic
+        result = []
+        for c in comisiones:
+            try:
+                result.append({
+                    "id": c.id,
+                    "codigo": str(c.codigo) if c.codigo else "",
+                    "materia_id": c.materia_id,
+                    "turno": str(c.turno) if c.turno else "",
+                    "activo": int(c.activo) if c.activo is not None else 1,
+                    "created_at": c.created_at.isoformat() if c.created_at else None,
+                    "updated_at": c.updated_at.isoformat() if c.updated_at else None
+                })
+            except Exception as e:
+                print(f"Error serializando comisión {c.id}: {e}")
+                continue # Si una falla, no bloqueamos el resto
+        
+        return result
+    except Exception as e:
+        print(f"ERROR EN GET /comisiones: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error interno del servidor: {str(e)}")
 
-@app.post("/comisiones", response_model=schemas.Comision)
+@app.post("/comisiones")
 async def create_comision(comision: schemas.ComisionCreate, db: Session = Depends(get_db)):
-    new_comision = models.Comision(**comision.dict())
-    db.add(new_comision)
-    db.commit()
-    db.refresh(new_comision)
-    return new_comision
+    try:
+        new_comision = models.Comision(**comision.dict())
+        db.add(new_comision)
+        db.commit()
+        db.refresh(new_comision)
+        
+        return {
+            "id": new_comision.id,
+            "codigo": new_comision.codigo,
+            "materia_id": new_comision.materia_id,
+            "turno": new_comision.turno,
+            "activo": new_comision.activo,
+            "created_at": new_comision.created_at.isoformat() if new_comision.created_at else None,
+            "updated_at": new_comision.updated_at.isoformat() if new_comision.updated_at else None
+        }
+    except IntegrityError as e:
+        db.rollback()
+        error_msg = str(e.orig)
+        if "ix_comisiones_codigo" in error_msg or "duplicate key" in error_msg:
+            raise HTTPException(status_code=400, detail=f"El código de comisión '{comision.codigo}' ya está en uso. Por favor, elige otro.")
+        raise HTTPException(status_code=400, detail=f"Error de integridad en la base de datos: {error_msg}")
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR EN POST /comisiones: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error en creación: {str(e)}")
 
-@app.put("/comisiones/{id}", response_model=schemas.Comision)
+@app.put("/comisiones/{id}")
 async def update_comision(id: int, comision: schemas.ComisionBase, db: Session = Depends(get_db)):
-    db_comision = db.query(models.Comision).filter(models.Comision.id == id).first()
-    if not db_comision:
-        raise HTTPException(status_code=404, detail="Comisión no encontrada")
-    for key, value in comision.dict(exclude_unset=True).items():
-        setattr(db_comision, key, value)
-    db.commit()
-    db.refresh(db_comision)
-    return db_comision
+    try:
+        db_comision = db.query(models.Comision).filter(models.Comision.id == id).first()
+        if not db_comision:
+            raise HTTPException(status_code=404, detail="Comisión no encontrada")
+        for key, value in comision.dict(exclude_unset=True).items():
+            setattr(db_comision, key, value)
+        db.commit()
+        db.refresh(db_comision)
+        
+        return {
+            "id": db_comision.id,
+            "codigo": db_comision.codigo,
+            "materia_id": db_comision.materia_id,
+            "turno": db_comision.turno,
+            "activo": db_comision.activo,
+            "created_at": db_comision.created_at.isoformat() if db_comision.created_at else None,
+            "updated_at": db_comision.updated_at.isoformat() if db_comision.updated_at else None
+        }
+    except IntegrityError as e:
+        db.rollback()
+        error_msg = str(e.orig)
+        if "ix_comisiones_codigo" in error_msg or "duplicate key" in error_msg:
+            raise HTTPException(status_code=400, detail=f"El código de comisión '{comision.codigo}' ya está en uso. Por favor, elige otro.")
+        raise HTTPException(status_code=400, detail=f"Error de integridad en la base de datos: {error_msg}")
+    except Exception as e:
+        db.rollback()
+        print(f"ERROR EN PUT /comisiones: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error en actualización: {str(e)}")
 
 @app.delete("/comisiones/{id}")
 async def delete_comision(id: int, db: Session = Depends(get_db)):
@@ -364,8 +473,10 @@ async def delete_cargo(id: int, db: Session = Depends(get_db)):
 # --- CARGO ASIGNACIONES ---
 
 @app.get("/cargo-asignaciones", response_model=List[schemas.CargoAsignacion])
-async def get_cargo_asignaciones(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def get_cargo_asignaciones(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
     query = db.query(models.CargoAsignacion)
+    if institucion_id:
+        query = query.join(models.Departamento).filter(models.Departamento.institucion_id == institucion_id)
     if departamento_id:
         query = query.filter(models.CargoAsignacion.departamento_id == departamento_id)
     return query.all()
@@ -447,8 +558,10 @@ async def get_modulos(db: Session = Depends(get_db)):
     return db.query(models.ModuloHorario).order_by(models.ModuloHorario.turno, models.ModuloHorario.numero).all()
 
 @app.get("/asignaciones", response_model=List[schemas.Asignacion])
-async def get_asignaciones(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def get_asignaciones(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
     query = db.query(models.Asignacion)
+    if institucion_id:
+        query = query.join(models.Departamento).filter(models.Departamento.institucion_id == institucion_id)
     if departamento_id:
         query = query.filter(models.Asignacion.departamento_id == departamento_id)
     return query.all()
@@ -473,8 +586,10 @@ async def create_asignacion(asignacion: schemas.AsignacionCreate, db: Session = 
 # --- RECREOS EXCLUIDOS ---
 
 @app.get("/recreos_excluidos", response_model=List[schemas.RecreoExcluido])
-async def get_recreos_excluidos(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def get_recreos_excluidos(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
     query = db.query(models.RecreoExcluido)
+    if institucion_id:
+        query = query.join(models.Departamento).filter(models.Departamento.institucion_id == institucion_id)
     if departamento_id:
         query = query.filter(models.RecreoExcluido.departamento_id == departamento_id)
     return query.all()
@@ -501,8 +616,10 @@ async def toggle_recreo_excluido(recreo: schemas.RecreoExcluidoCreate, db: Sessi
 # --- CALENDARIOS ---
 
 @app.get("/calendarios", response_model=List[schemas.Calendario])
-async def get_calendarios(departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
+async def get_calendarios(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
     query = db.query(models.Calendario)
+    if institucion_id:
+        query = query.join(models.Departamento).filter(models.Departamento.institucion_id == institucion_id)
     if departamento_id:
         query = query.filter(models.Calendario.departamento_id == departamento_id)
     

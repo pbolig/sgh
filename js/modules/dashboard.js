@@ -6,7 +6,7 @@ import { Comisiones } from './comisiones.js';
 
 export const Dashboard = {
     timer: null,
-    timeRange: { start: 7 * 60, end: 22 * 60 }, // 07:00 a 22:00 (900 minutos totales)
+    timeRange: { start: 7 * 60, end: 24 * 60 }, // 07:00 a 00:00 (17 horas totales)
     
     render: async (containerId) => {
         const container = document.getElementById(containerId);
@@ -44,14 +44,14 @@ export const Dashboard = {
         const [deptos, modulos, aulas, docentes, comisiones, allAsignaciones, cargoAsignaciones, cargos, excluidos, calEvents] = await Promise.all([
             Departamentos.list(instId),
             fetch('/api/modulos').then(r => r.json()),
-            fetch(`/api/aulas${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
+            fetch(`/api/aulas?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.json()),
             Docentes.list(instId),
-            Comisiones.list(deptoId),
-            fetch(`/api/asignaciones${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
-            fetch('/api/cargo-asignaciones').then(r => r.json()),
-            fetch(`/api/cargos${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
-            fetch('/api/recreos_excluidos').then(r => r.json()),
-            fetch(`/api/calendarios${instId ? '?institucion_id=' + instId : ''}`).then(r => r.json()).then(async cals => {
+            Comisiones.list(deptoId, null, instId),
+            fetch(`/api/asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.json()),
+            fetch(`/api/cargo-asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.json()),
+            fetch('/api/cargos').then(r => r.json()),
+            fetch(`/api/recreos_excluidos?institucion_id=${instId}`).then(r => r.json()),
+            fetch(`/api/calendarios?institucion_id=${instId}`).then(r => r.json()).then(async cals => {
                 if (cals && cals.length > 0) {
                     const res = await fetch(`/api/calendario_eventos?calendario_id=${cals[0].id}`);
                     return res.json();
@@ -193,13 +193,20 @@ export const Dashboard = {
                 timeScaleHtml += '</div>';
                 html += timeScaleHtml;
 
-                const deptosFilt = deptos.filter(d => {
+                const deptosFilt = (deptos || []).filter(d => {
+                    // Solo departamentos de la institución actual (aunque list(instId) ya debería hacerlo)
+                    // Y filtrar por el depto específico si está seleccionado
+                    if (instId && instId !== 'todas' && d.institucion_id && d.institucion_id.toString() !== instId.toString()) return false;
                     if (!selectedDeptId || selectedDeptId === 'todos' || selectedDeptId === '') return true;
                     return d.id.toString() === selectedDeptId;
                 });
 
                 deptosFilt.forEach(depto => {
-                    const deptoAulas = aulas.filter(a => a.departamento_id === depto.id);
+                    const deptoAulas = aulas.filter(a => {
+                        if (a.departamento_id === depto.id) return true;
+                        if (a.departamento_ids && Array.isArray(a.departamento_ids) && a.departamento_ids.includes(depto.id)) return true;
+                        return false;
+                    });
                     if (deptoAulas.length === 0) return;
 
                     const deptoModulos = modulos.filter(m => {
@@ -342,7 +349,11 @@ export const Dashboard = {
                         // Usar deptosFilt para respetar el desplegable actual
                         const ds = document.getElementById('dept-selector');
                         const selId = ds ? ds.value : '';
-                        const deptosScope = deptos.filter(d => {
+                        const is = document.getElementById('inst-selector');
+                        const selInstId = is ? is.value : instId;
+
+                        const deptosScope = (deptos || []).filter(d => {
+                            if (selInstId && selInstId !== 'todas' && d.institucion_id && d.institucion_id.toString() !== selInstId.toString()) return false;
                             if (!selId || selId === 'todos' || selId === '') return true;
                             return d.id.toString() === selId;
                         });
@@ -350,7 +361,11 @@ export const Dashboard = {
                         let foundAny = false;
     
                         deptosScope.forEach(dpt => {
-                            const aulasDpt = aulas.filter(a => a.departamento_id === dpt.id);
+                            const aulasDpt = aulas.filter(a => {
+                                if (a.departamento_id === dpt.id) return true;
+                                if (a.departamento_ids && Array.isArray(a.departamento_ids) && a.departamento_ids.includes(dpt.id)) return true;
+                                return false;
+                            });
                             
                             aulasDpt.forEach(aul => {
                                 // Buscar clase activa

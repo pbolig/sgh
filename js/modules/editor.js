@@ -2,6 +2,7 @@
 import { Auth } from './auth.js';
 import { Departamentos } from './departamentos.js';
 import { Docentes } from './docentes.js';
+import { Materias } from './materias.js';
 import { Comisiones } from './comisiones.js';
 
 export const Editor = {
@@ -48,19 +49,20 @@ export const Editor = {
         gridContainer.innerHTML = '<div class="loading">Cargando grilla...</div>';
 
         try {
-            const [modulos, aulas, docentes, comisiones, asignaciones, deptos, excluidos] = await Promise.all([
+            const [modulos, aulas, docentes, comisiones, asignaciones, deptos, excluidos, materias] = await Promise.all([
                 fetch('/api/modulos').then(r => r.json()),
-                fetch('/api/aulas').then(r => r.json()),
+                fetch(`/api/aulas?departamento_id=${deptoId}`).then(r => r.json()),
                 Docentes.list(),
-                Comisiones.list(),
+                Comisiones.list(deptoId),
                 fetch(`/api/asignaciones?departamento_id=${deptoId}`).then(r => r.json()),
                 Departamentos.list(),
-                fetch(`/api/recreos_excluidos?departamento_id=${deptoId}`).then(r => r.json())
+                fetch(`/api/recreos_excluidos?departamento_id=${deptoId}`).then(r => r.json()),
+                Materias.list(deptoId)
             ]);
 
             const filteredModulos = modulos.filter(m => m.turno === turno)
                 .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
-            const filteredAulas = aulas.filter(a => a.departamento_id == deptoId);
+            const filteredAulas = aulas; 
 
             if (filteredAulas.length === 0) {
                 gridContainer.innerHTML = '<div class="error-message">Este departamento no tiene aulas registradas.</div>';
@@ -88,6 +90,7 @@ export const Editor = {
                                         <select onchange="window.updateEditorFilters('${dia}', this.value)" class="select-mini">
                                             <option value="mañana" ${turno === 'mañana' ? 'selected' : ''}>Mañana</option>
                                             <option value="tarde" ${turno === 'tarde' ? 'selected' : ''}>Tarde</option>
+                                            <option value="noche" ${turno === 'noche' ? 'selected' : ''}>Noche</option>
                                         </select>
                                     </div>
                                     <span class="dept-title">${deptos.find(d => d.id == deptoId)?.nombre.toUpperCase()}</span>
@@ -194,7 +197,7 @@ export const Editor = {
 
             window.editCell = (deptoId, aulaId, moduloId, dia) => {
                 const asig = asignaciones.find(as => as.aula_id === aulaId && as.modulo_id === moduloId && as.dia_semana === dia);
-                Editor.showCellForm(deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, turno);
+                Editor.showCellForm(deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno);
             };
 
             window.toggleRecreo = async (deptoId, dia, moduloIdAnterior) => {
@@ -241,9 +244,15 @@ export const Editor = {
         `;
     },
 
-    showCellForm: (deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, turno) => {
+    showCellForm: (deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno) => {
         const modal = document.createElement('div');
         modal.className = 'modal';
+        
+        // Obtener la comisión seleccionada actualmente (si existe) para saber su año
+        const currentCom = asig ? comisiones.find(c => c.id === asig.comision_id) : null;
+        const currentMat = currentCom ? materias.find(m => m.id === currentCom.materia_id) : null;
+        const initialAnio = currentMat ? currentMat.anio : "";
+
         modal.innerHTML = `
             <div class="modal-content">
                 <h3>Asignación: ${dia} - Módulo ${moduloId}</h3>
@@ -253,14 +262,25 @@ export const Editor = {
                     <input type="hidden" name="modulo_id" value="${moduloId}">
                     <input type="hidden" name="dia_semana" value="${dia}">
                     
-                    <div class="form-group">
-                        <label>Comisión:</label>
-                        <select name="comision_id">
-                            <option value="">Ninguna</option>
-                            ${comisiones
-                                .sort((a, b) => (a.codigo || '').localeCompare(b.codigo || '', undefined, { numeric: true, sensitivity: 'base' }))
-                                .map(c => `<option value="${c.id}" ${asig?.comision_id === c.id ? 'selected' : ''}>${c.codigo}</option>`).join('')}
-                        </select>
+                    <div class="form-row" style="display: flex; gap: 10px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label>Filtrar por Año:</label>
+                            <select id="filter-anio-modal">
+                                <option value="">-- Todos --</option>
+                                <option value="1" ${initialAnio == 1 ? 'selected' : ''}>1° Año</option>
+                                <option value="2" ${initialAnio == 2 ? 'selected' : ''}>2° Año</option>
+                                <option value="3" ${initialAnio == 3 ? 'selected' : ''}>3° Año</option>
+                                <option value="4" ${initialAnio == 4 ? 'selected' : ''}>4° Año</option>
+                                <option value="5" ${initialAnio == 5 ? 'selected' : ''}>5° Año</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 2;">
+                            <label>Comisión:</label>
+                            <select name="comision_id" id="comision-selector-modal">
+                                <option value="">Ninguna</option>
+                                <!-- Se poblará dinámicamente -->
+                            </select>
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -269,10 +289,10 @@ export const Editor = {
                             <option value="">Ninguno</option>
                             ${docentes
                                 .sort((a, b) => (a.apellido || '').localeCompare(b.apellido || ''))
-                                .map(d => `<option value="${d.id}" ${asig?.docente_id === d.id ? 'selected' : ''}>${d.apellido}</option>`).join('')}
+                                .map(d => `<option value="${d.id}" ${asig?.docente_id === d.id ? 'selected' : ''}>${d.apellido}, ${d.nombre}</option>`).join('')}
                         </select>
                     </div>
-
+                    
                     <div class="form-group">
                         <label>Observaciones:</label>
                         <textarea name="observaciones">${asig?.observaciones || ''}</textarea>
@@ -286,6 +306,29 @@ export const Editor = {
             </div>
         `;
         document.body.appendChild(modal);
+
+        const selAnio = document.getElementById('filter-anio-modal');
+        const selCom = document.getElementById('comision-selector-modal');
+
+        const updateComisiones = () => {
+            const anio = selAnio.value;
+            const filteredComs = comisiones.filter(c => {
+                if (!anio) return true;
+                const mat = materias.find(m => m.id === c.materia_id);
+                return mat && mat.anio == anio;
+            });
+
+            selCom.innerHTML = '<option value="">Ninguna</option>' + 
+                filteredComs
+                .sort((a, b) => (a.codigo || '').localeCompare(b.codigo || '', undefined, { numeric: true, sensitivity: 'base' }))
+                .map(c => {
+                    const mat = materias.find(m => m.id === c.materia_id);
+                    return `<option value="${c.id}" ${asig?.comision_id === c.id ? 'selected' : ''}>${c.codigo} - ${mat ? mat.nombre : ''}</option>`;
+                }).join('');
+        };
+
+        selAnio.onchange = updateComisiones;
+        updateComisiones(); // Carga inicial
 
         document.getElementById('btn-close-modal').onclick = () => modal.remove();
         document.getElementById('asig-form').onsubmit = async (e) => {
