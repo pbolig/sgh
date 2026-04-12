@@ -23,6 +23,92 @@ html, body {
     overflow: hidden;
 }
 
+/* --- RBAC & READ ONLY MODE --- */
+.read-only-mode .btn-primary,
+.read-only-mode .btn-edit,
+.read-only-mode .btn-delete,
+.read-only-mode .btn-success,
+.read-only-mode .btn-add,
+.read-only-mode #btn-add-materia,
+.read-only-mode #btn-add-depto,
+.read-only-mode .modal-actions button[type="submit"],
+.read-only-mode .asig-item:hover::after {
+    display: none !important;
+}
+
+.read-only-mode input,
+.read-only-mode select,
+.read-only-mode textarea {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.info-banner {
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.rbac-container {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+}
+
+.rol-selector-wrapper {
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.matrix-table td {
+    text-align: center !important;
+}
+
+.matrix-table td:first-child {
+    text-align: left !important;
+}
+
+.mod-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mod-icon {
+    font-size: 1.2rem;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-success {
+    background: var(--success);
+    color: white;
+    border: none;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-success:hover {
+    filter: brightness(1.1);
+    transform: translateY(-1px);
+}
+
 /* Eliminamos scrollbars globales para evitar interferencias generales */
 * {
     scrollbar-width: thin; /* Para Firefox */
@@ -3774,6 +3860,20 @@ textarea:focus {
     font-weight: 600;
     white-space: nowrap;
 }
+
+.badge-dept {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+    display: inline-block;
+    margin: 1px;
+}
+
 
 .btn-close-x {
     background: none;

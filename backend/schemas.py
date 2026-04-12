@@ -27,18 +27,69 @@ class Institucion(InstitucionBase):
     class Config:
         from_attributes = True
 
+# Esquemas de RBAC
+class RolBase(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    institucion_id: Optional[int] = None
+
+class RolCreate(RolBase):
+    institucion_id: int
+
+class Rol(RolBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class ModuloBase(BaseModel):
+    nombre: str
+    etiqueta: str
+    icono: Optional[str] = None
+
+class ModuloCreate(ModuloBase):
+    pass
+
+class Modulo(ModuloBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class PermisoBase(BaseModel):
+    rol_id: int
+    modulo_id: int
+    nivel: str # ninguno, lectura, edicion
+
+class PermisoCreate(PermisoBase):
+    pass
+
+class Permiso(PermisoBase):
+    id: int
+    modulo: Optional[Modulo] = None
+    class Config:
+        from_attributes = True
+
 # Esquemas de Usuario
 class UsuarioBase(BaseModel):
     username: str
     rol: str
+    rol_id: Optional[int] = None
     activo: int
     institucion_id: Optional[int] = None
 
 class UsuarioCreate(UsuarioBase):
     password: str
 
+class UsuarioUpdate(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    rol: Optional[str] = None
+    rol_id: Optional[int] = None
+    activo: Optional[int] = None
+    institucion_id: Optional[int] = None
+
 class Usuario(UsuarioBase):
     id: int
+    rol_obj: Optional[Rol] = None
     created_at: datetime
     class Config:
         from_attributes = True
@@ -167,7 +218,7 @@ class CargoHorario(CargoHorarioBase):
 
 # Esquemas de CargoAsignacion
 class CargoAsignacionBase(BaseModel):
-    cargo_id: int
+    cargo_id: Optional[int] = None
     docente_id: Optional[int] = None
     departamento_id: int
     horas_lunes: float = 0
@@ -181,7 +232,7 @@ class CargoAsignacionBase(BaseModel):
     hora_inicio: Optional[str] = None
     hora_fin: Optional[str] = None
     activo: Optional[int] = 1
-    horarios: List[CargoHorario] = []
+    horarios: List[CargoHorarioCreate] = []
 
 class CargoAsignacionCreate(CargoAsignacionBase):
     pass
@@ -207,6 +258,8 @@ class CargoAsignacion(CargoAsignacionBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    horarios: List[CargoHorario] = []
+    
     class Config:
         from_attributes = True
 

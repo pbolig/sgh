@@ -39,22 +39,27 @@ export const Dashboard = {
         
         const instId = document.getElementById('inst-selector')?.value;
         const deptoId = document.getElementById('dept-selector')?.value;
+
+        if (!instId) {
+            container.innerHTML += '<div class="info-banner">Seleccione una institución para cargar el dashboard.</div>';
+            return;
+        }
         
-        // Cargar datos necesarios
+        // Cargar datos necesarios con manejo de errores robusto
         const [deptos, modulos, aulas, docentes, comisiones, allAsignaciones, cargoAsignaciones, cargos, excluidos, calEvents] = await Promise.all([
-            Departamentos.list(instId),
-            fetch('/api/modulos').then(r => r.json()),
-            fetch(`/api/aulas?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.json()),
-            Docentes.list(instId),
-            Comisiones.list(deptoId, null, instId),
-            fetch(`/api/asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.json()),
-            fetch(`/api/cargo-asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.json()),
-            fetch('/api/cargos').then(r => r.json()),
-            fetch(`/api/recreos_excluidos?institucion_id=${instId}`).then(r => r.json()),
-            fetch(`/api/calendarios?institucion_id=${instId}`).then(r => r.json()).then(async cals => {
-                if (cals && cals.length > 0) {
+            Departamentos.list(instId).catch(() => []),
+            fetch('/api/modulos').then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/aulas?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
+            Docentes.list(instId).catch(() => []),
+            Comisiones.list(deptoId, null, instId).catch(() => []),
+            fetch(`/api/asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/cargo-asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/cargos').then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/recreos_excluidos?institucion_id=${instId}`).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/calendarios?institucion_id=${instId}`).then(r => r.ok ? r.json() : []).catch(() => []).then(async cals => {
+                if (Array.isArray(cals) && cals.length > 0) {
                     const res = await fetch(`/api/calendario_eventos?calendario_id=${cals[0].id}`);
-                    return res.json();
+                    return res.ok ? res.json() : [];
                 }
                 return [];
             })
@@ -202,15 +207,15 @@ export const Dashboard = {
                 });
 
                 deptosFilt.forEach(depto => {
-                    const deptoAulas = aulas.filter(a => {
+                    const deptoAulas = (aulas || []).filter(a => {
                         if (a.departamento_id === depto.id) return true;
                         if (a.departamento_ids && Array.isArray(a.departamento_ids) && a.departamento_ids.includes(depto.id)) return true;
                         return false;
                     });
                     if (deptoAulas.length === 0) return;
 
-                    const deptoModulos = modulos.filter(m => {
-                        return allAsignaciones.some(as => as.modulo_id === m.id && deptoAulas.some(da => da.id === as.aula_id) && as.dia_semana === diaActual);
+                    const deptoModulos = (modulos || []).filter(m => {
+                        return (allAsignaciones || []).some(as => as.modulo_id === m.id && deptoAulas.some(da => da.id === as.aula_id) && as.dia_semana === diaActual);
                     }).sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
 
                     html += `
@@ -222,11 +227,11 @@ export const Dashboard = {
                                         let tracksHtml = '';
                                         
                                         // Bloques de clase
-                                        const asigsAula = allAsignaciones.filter(as => as.aula_id === aula.id && as.dia_semana === diaActual);
+                                        const asigsAula = (allAsignaciones || []).filter(as => as.aula_id === aula.id && as.dia_semana === diaActual);
                                         asigsAula.forEach(asig => {
-                                            const m = modulos.find(mod => mod.id === asig.modulo_id);
-                                            const c = comisiones.find(com => com.id === asig.comision_id);
-                                            const d = docentes.find(doc => doc.id === asig.docente_id);
+                                            const m = (modulos || []).find(mod => mod.id === asig.modulo_id);
+                                            const c = (comisiones || []).find(com => com.id === asig.comision_id);
+                                            const d = (docentes || []).find(doc => doc.id === asig.docente_id);
                                             if (m) {
                                                 const left = getLeftPercent(m.hora_inicio);
                                                 const width = getWidthPercent(m.hora_inicio, m.hora_fin);
@@ -369,15 +374,15 @@ export const Dashboard = {
                             
                             aulasDpt.forEach(aul => {
                                 // Buscar clase activa
-                                const asigs = allAsignaciones.filter(as => as.aula_id === aul.id && as.dia_semana === curDia);
+                                const asigs = (allAsignaciones || []).filter(as => as.aula_id === aul.id && as.dia_semana === curDia);
                                 let claseActiva = null;
                                 asigs.forEach(asig => {
-                                    const m = modulos.find(mod => mod.id === asig.modulo_id);
+                                    const m = (modulos || []).find(mod => mod.id === asig.modulo_id);
                                     if(m) {
                                         const start = Dashboard.timeToMinutes(m.hora_inicio);
                                         const end = Dashboard.timeToMinutes(m.hora_fin);
                                         if(cMins >= start && cMins <= end) {
-                                            claseActiva = { modulo: m, comision: comisiones.find(c => c.id === asig.comision_id), docente: docentes.find(dc => dc.id === asig.docente_id) };
+                                            claseActiva = { modulo: m, comision: (comisiones || []).find(c => c.id === asig.comision_id), docente: (docentes || []).find(dc => dc.id === asig.docente_id) };
                                         }
                                     }
                                 });

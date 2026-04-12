@@ -13,6 +13,8 @@ import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js';
 import { Calendario } from './js/modules/calendario.js?v=2';
 import { PAD } from './js/modules/pad.js';
 import { Instituciones } from './js/modules/instituciones.js';
+import { Permisos } from './js/modules/permisos.js';
+import { Usuarios } from './js/modules/usuarios.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('App inicializada');
@@ -53,9 +55,24 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Mostrar link de instituciones solo si es admin
         const navInst = document.getElementById('nav-instituciones');
-        if (navInst && user.rol === 'admin') {
+        if (navInst && (user.rol === 'admin' || user.rol === 'directivo')) {
             navInst.classList.remove('hidden');
         }
+
+        // Mostrar link de permisos solo si es admin o directivo
+        const navPerms = document.getElementById('nav-permisos');
+        if (navPerms && (user.rol === 'admin' || user.rol === 'directivo')) {
+            navPerms.classList.remove('hidden');
+        }
+
+        // Mostrar link de usuarios solo si es admin o directivo
+        const navUsers = document.getElementById('nav-usuarios');
+        if (navUsers && (user.rol === 'admin' || user.rol === 'directivo')) {
+            navUsers.classList.remove('hidden');
+        }
+
+        // Filtrado dinámico del sidebar basado en permisos
+        filterSidebar(user);
 
         initNavigation();
         initSidebar();
@@ -166,6 +183,26 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
+    function filterSidebar(user) {
+        if (user.rol === 'admin' || user.rol === 'directivo') return; // Acceso total
+
+        const perms = Auth.getPermissions();
+        console.log('Filtrando menú para:', user.username, perms);
+
+        const navLinks = document.querySelectorAll('#main-nav a[data-route]');
+        navLinks.forEach(link => {
+            const route = link.getAttribute('data-route');
+            if (route === 'dashboard') return; // Siempre visible
+
+            const p = perms.find(perm => perm.modulo?.nombre === route);
+            if (!p || p.nivel === 'ninguno') {
+                link.parentElement.classList.add('hidden');
+            } else {
+                link.parentElement.classList.remove('hidden');
+            }
+        });
+    }
+
     function initNavigation() {
         const navLinks = document.querySelectorAll('#main-nav a');
         navLinks.forEach(link => {
@@ -203,8 +240,35 @@ document.addEventListener('DOMContentLoaded', () => {
             content.classList.add('minimal-padding');
         } else if (route === 'departamentos') {
             title.textContent = 'Departamentos / Carreras';
+        } else if (route === 'permisos') {
+            title.textContent = 'Gestión de Accesos';
+        } else if (route === 'usuarios') {
+            title.textContent = 'Gestión de Usuarios';
         } else {
             title.textContent = route.charAt(0).toUpperCase() + route.slice(1);
+        }
+
+        // --- PROTECCIÓN DE RUTA Y MODO LECTURA ---
+        content.classList.remove('read-only-mode');
+        
+        const user = Auth.getUser();
+        if (user.rol !== 'admin' && user.rol !== 'directivo') {
+            const perms = Auth.getPermissions();
+            const p = perms.find(perm => perm.modulo?.nombre === route);
+            
+            if (route !== 'dashboard' && (!p || p.nivel === 'ninguno')) {
+                content.innerHTML = '<div class="error-message">Acceso denegado: No tiene permisos para ver este módulo.</div>';
+                return;
+            }
+
+            if (p && p.nivel === 'lectura') {
+                content.classList.add('read-only-mode');
+                // Inyectamos un mensaje sutil
+                const roMsg = document.createElement('div');
+                roMsg.className = 'info-banner';
+                roMsg.innerHTML = 'ℹ️ Modo Solo Lectura: No tiene permisos para realizar modificaciones.';
+                content.prepend(roMsg);
+            }
         }
 
         switch(route) {
@@ -248,6 +312,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'cargo-asignaciones':
                 await CargoAsignaciones.render('view-container');
+                break;
+            case 'permisos':
+                await Permisos.render('view-container');
+                break;
+            case 'usuarios':
+                await Usuarios.render('view-container');
                 break;
             default:
                 // Limpiar timers de dashboard si cambiamos a otra vista

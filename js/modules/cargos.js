@@ -107,7 +107,7 @@ export const Cargos = {
         };
     },
 
-    showForm: (cargo = null) => {
+    showForm: (cargo = null, deptoId = null) => {
         const isEdit = !!cargo;
         const modal = document.createElement('div');
         modal.className = 'modal';

@@ -13,7 +13,65 @@ import auth_utils
 # Crear tablas (en desarrollo Docker se hace vía seed o al iniciar)
 models.Base.metadata.create_all(bind=engine)
 
+from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
+
 app = FastAPI(title="SGH Backend")
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+
+# --- DEPENDENCIAS DE SEGURIDAD ---
+
+from fastapi import Request
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+
+async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="No se pudo validar el token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if not token:
+        raise credentials_exception
+        
+    try:
+        payload = jwt.decode(token, auth_utils.SECRET_KEY, algorithms=[auth_utils.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    except Exception:
+        raise credentials_exception
+        
+    user = db.query(models.Usuario).filter(models.Usuario.username == username).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
+def check_permission(modulo: str, nivel_requerido: str):
+    async def permission_dependency(user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+        # El rol 'directivo' siempre tiene acceso total
+        if user.rol == "directivo" or user.rol == "admin":
+            return True
+            
+        # Buscar permiso específico para el rol del usuario
+        permiso = db.query(models.Permiso).join(models.Modulo).filter(
+            models.Permiso.rol_id == user.rol_id,
+            models.Modulo.nombre == modulo
+        ).first()
+        
+        if not permiso:
+            raise HTTPException(status_code=403, detail=f"No tiene permisos para el módulo {modulo}")
+            
+        # Niveles: ninguno < lectura < edicion
+        niveles = {"ninguno": 0, "lectura": 1, "edicion": 2}
+        if niveles.get(permiso.nivel, 0) < niveles.get(nivel_requerido, 0):
+            raise HTTPException(status_code=403, detail=f"Nivel de acceso insuficiente para {modulo}")
+            
+        return True
+    return Depends(permission_dependency)
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,8 +105,10 @@ async def login(
     if not user.activo:
         raise HTTPException(status_code=403, detail="Cuenta desactivada")
 
+    access_token_expires = datetime.timedelta(minutes=auth_utils.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = auth_utils.create_access_token(
-        data={"sub": user.username, "rol": user.rol}
+        data={"sub": user.username, "rol": user.rol},
+        expires_delta=access_token_expires
     )
     
     return {
@@ -56,6 +116,155 @@ async def login(
         "token_type": "bearer",
         "user": user
     }
+
+# --- ROLES Y PERMISOS (RBAC) ---
+
+@app.get("/roles", response_model=List[schemas.Rol])
+async def get_roles(institucion_id: Optional[int] = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    query = db.query(models.Rol)
+    if institucion_id:
+        query = query.filter(models.Rol.institucion_id == institucion_id)
+    return query.all()
+
+@app.post("/roles", response_model=schemas.Rol)
+async def create_rol(rol: schemas.RolCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+        raise HTTPException(status_code=403, detail="No tiene permisos")
+    db_rol = models.Rol(**rol.dict())
+    db.add(db_rol)
+    db.commit()
+    db.refresh(db_rol)
+    return db_rol
+
+@app.get("/modulos", response_model=List[schemas.Modulo])
+async def get_modulos(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    return db.query(models.Modulo).all()
+
+@app.get("/permisos", response_model=List[schemas.Permiso])
+async def get_all_permisos(rol_id: Optional[int] = None, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+         raise HTTPException(status_code=403, detail="No tiene permisos")
+    query = db.query(models.Permiso)
+    if rol_id:
+        query = query.filter(models.Permiso.rol_id == rol_id)
+    return query.all()
+
+@app.post("/permisos")
+async def save_permisos(permisos: List[schemas.PermisoCreate], db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+        raise HTTPException(status_code=403, detail="No tiene permisos")
+        
+    for p in permisos:
+        existing = db.query(models.Permiso).filter(
+            models.Permiso.rol_id == p.rol_id,
+            models.Permiso.modulo_id == p.modulo_id
+        ).first()
+        if existing:
+            existing.nivel = p.nivel
+        else:
+            db.add(models.Permiso(**p.dict()))
+            
+    db.commit()
+    return {"message": "Permisos actualizados correctamente"}
+
+@app.get("/mis-permisos", response_model=List[schemas.Permiso])
+async def get_mis_permisos(user: models.Usuario = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Si es admin o directivo, devolvemos permiso total para todos los módulos
+    if user.rol in ["admin", "directivo"]:
+        modulos = db.query(models.Modulo).all()
+        # Devolver diccionarios con ID para evitar ValidationError en Pydantic
+        return [
+            {
+                "id": m.id, 
+                "rol_id": user.rol_id or 0, 
+                "modulo_id": m.id, 
+                "nivel": "edicion", 
+                "modulo": m
+            }
+            for m in modulos
+        ]
+    
+    return db.query(models.Permiso).filter(models.Permiso.rol_id == user.rol_id).all()
+
+# --- GESTIÓN DE USUARIOS ---
+
+@app.get("/usuarios", response_model=List[schemas.Usuario])
+async def get_usuarios(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+        raise HTTPException(status_code=403, detail="No tiene permisos")
+    return db.query(models.Usuario).all()
+
+@app.post("/usuarios", response_model=schemas.Usuario)
+async def create_usuario(user: schemas.UsuarioCreate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+        raise HTTPException(status_code=403, detail="No tiene permisos")
+    
+    db_user = db.query(models.Usuario).filter(models.Usuario.username == user.username).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+    
+    # Si se asigna un rol_id, asegurar que el campo 'rol' (string) esté sincronizado
+    rol_str = user.rol
+    if user.rol_id:
+        rol_obj = db.query(models.Rol).filter(models.Rol.id == user.rol_id).first()
+        if rol_obj:
+            rol_str = rol_obj.nombre
+            
+    new_user = models.Usuario(
+        username=user.username,
+        password_hash=auth_utils.get_password_hash(user.password),
+        rol=rol_str,
+        rol_id=user.rol_id,
+        activo=user.activo,
+        institucion_id=user.institucion_id
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user
+
+@app.put("/usuarios/{id}", response_model=schemas.Usuario)
+async def update_usuario(id: int, user_update: schemas.UsuarioUpdate, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+        raise HTTPException(status_code=403, detail="No tiene permisos")
+    
+    db_user = db.query(models.Usuario).filter(models.Usuario.id == id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    update_data = user_update.dict(exclude_unset=True)
+    
+    if "password" in update_data:
+        db_user.password_hash = auth_utils.get_password_hash(update_data.pop("password"))
+    
+    # Sincronizar rol (string) si se actualiza rol_id
+    if "rol_id" in update_data:
+        rol_obj = db.query(models.Rol).filter(models.Rol.id == update_data["rol_id"]).first()
+        if rol_obj:
+            db_user.rol = rol_obj.nombre
+            
+    for key, value in update_data.items():
+        setattr(db_user, key, value)
+    
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.delete("/usuarios/{id}")
+async def delete_usuario(id: int, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+        raise HTTPException(status_code=403, detail="No tiene permisos")
+    
+    if id == current_user.id:
+        raise HTTPException(status_code=400, detail="No puede eliminarse a sí mismo")
+        
+    db_user = db.query(models.Usuario).filter(models.Usuario.id == id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    db.delete(db_user)
+    db.commit()
+    return {"message": "Usuario eliminado correctamente"}
 
 # --- INSTITUCIONES ---
 

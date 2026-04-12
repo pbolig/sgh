@@ -80,6 +80,7 @@ export const Docentes = {
                     <tr>
                         <th>Apellido</th>
                         <th>Nombre</th>
+                        <th style="min-width: 200px;">Asignación</th>
                         <th>Email</th>
                         <th>Teléfono</th>
                         <th>Acciones</th>
@@ -89,21 +90,27 @@ export const Docentes = {
                     ${docentes.length === 0 ? '<tr><td colspan="6" style="text-align:center">No hay docentes registrados</td></tr>' : ''}
                     ${docentes.map(d => `
                         <tr>
-                            <td>${d.apellido}</td>
+                            <td><strong>${d.apellido}</strong></td>
                             <td>${d.nombre || '-'}</td>
                             <td>
-                                ${d.instituciones.map(i => `<span class="badge-inst">${i.nombre}</span>`).join(' ')}
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                    ${d.instituciones.map(i => `<span class="badge-inst" title="Institución">${i.nombre}</span>`).join('')}
+                                    ${d.departamentos.map(dept => `<span class="badge-dept" title="Carrera">${dept.nombre}</span>`).join('')}
+                                </div>
                             </td>
                             <td>${d.email || '-'}</td>
                             <td>${d.telefono || '-'}</td>
                             <td>
-                                <button class="btn-edit" onclick="window.editDocente(${d.id})">Editar</button>
-                                <button class="btn-delete" onclick="window.deleteDocente(${d.id})">Eliminar</button>
+                                <div class="actions-cell">
+                                    <button class="btn-edit" onclick="window.editDocente(${d.id})">Editar</button>
+                                    <button class="btn-delete" onclick="window.deleteDocente(${d.id})">Eliminar</button>
+                                </div>
                             </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
+
         `;
 
         // Usar window para asegurar que los eventos se disparen

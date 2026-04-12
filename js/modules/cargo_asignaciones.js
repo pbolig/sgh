@@ -107,7 +107,7 @@ export const CargoAsignaciones = {
                             return `
                                 <tr>
                                     <td><b>${docente ? `${docente.apellido}, ${docente.nombre}` : 'S/D'}</b></td>
-                                    <td>${cargo ? cargo.nombre : 'S/C'}</td>
+                                    <td>${cargo ? cargo.nombre : '<i style="color:var(--text-dim)">Horas Cátedra / Módulos</i>'}</td>
                                     <td>${depto ? depto.nombre : '-'}</td>
                                     <td>
                                         <div class="slots-summary">
@@ -144,12 +144,19 @@ export const CargoAsignaciones = {
         const modal = document.createElement('div');
         modal.className = 'modal';
         
-        let slots = asig?.horarios ? [...asig.horarios] : [];
+        let slots = asig?.horarios ? asig.horarios.map(s => ({
+            ...s,
+            tipo: s.horas % 1 === 0 && (s.horas * 60) % 40 !== 0 ? 'cargo' : 'cátedra', // Intento de inferir
+            cantidad: s.horas % 1 === 0 && (s.horas * 60) % 40 !== 0 ? s.horas : (s.horas * 60 / 40)
+        })) : [];
 
         const renderForm = () => {
             modal.innerHTML = `
-                <div class="modal-content animated zoomIn" style="max-width: 800px;">
-                    <h3>${isEdit ? 'Editar' : 'Nueva'} Asignación de Cargo</h3>
+                <div class="modal-content animated zoomIn" style="max-width: 900px;">
+                    <div class="modal-header">
+                        <h3>${isEdit ? 'Editar' : 'Nueva'} Asignación de Cargo</h3>
+                        <button class="btn-close-x" id="btn-close-modal-x">&times;</button>
+                    </div>
                     <form id="asig-form">
                         <input type="hidden" name="id" value="${asig?.id || ''}">
                         
@@ -168,8 +175,8 @@ export const CargoAsignaciones = {
                         <div class="form-row">
                             <div class="form-group col">
                                 <label>Cargo (Definición):</label>
-                                <select name="cargo_id" required>
-                                    <option value="">-- Seleccione --</option>
+                                <select name="cargo_id">
+                                    <option value="">-- Sin Cargo (Solo Horas Cátedra) --</option>
                                     ${cargos.map(c => `<option value="${c.id}" ${c.id === asig?.cargo_id ? 'selected' : ''}>${c.nombre}</option>`).join('')}
                                 </select>
                             </div>
@@ -182,18 +189,20 @@ export const CargoAsignaciones = {
                             </div>
                         </div>
 
-                        <div class="form-section">
+                        <div class="form-section glass-card" style="padding: 1.5rem; margin-top: 1rem;">
                             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-                                <h4 style="margin:0">Horarios y Carga Horaria (Slots)</h4>
-                                <button type="button" id="btn-add-slot" class="btn-secondary btn-sm">+ Añadir Horario</button>
+                                <h4 style="margin:0; color: var(--primary);">Horarios y Carga Horaria</h4>
+                                <button type="button" id="btn-add-slot" class="btn-primary btn-sm">+ Añadir Horario</button>
                             </div>
                             
                             <table class="data-table slots-table">
                                 <thead>
                                     <tr>
                                         <th>Día</th>
+                                        <th>Tipo</th>
+                                        <th>Cant.</th>
                                         <th>Inicio</th>
-                                        <th>Fin</th>
+                                        <th>Fin (Auto)</th>
                                         <th>Hs (60m)</th>
                                         <th></th>
                                     </tr>
@@ -208,17 +217,24 @@ export const CargoAsignaciones = {
                                                     ).join('')}
                                                 </select>
                                             </td>
-                                            <td><input type="time" class="slot-inicio" data-idx="${idx}" value="${s.hora_inicio}" required></td>
-                                            <td><input type="time" class="slot-fin" data-idx="${idx}" value="${s.hora_fin}" required></td>
-                                            <td><input type="number" class="slot-horas" data-idx="${idx}" value="${s.horas}" step="0.5" min="0" style="width:60px" required></td>
+                                            <td>
+                                                <select class="slot-tipo" data-idx="${idx}">
+                                                    <option value="cátedra" ${s.tipo === 'cátedra' || !s.tipo ? 'selected' : ''}>Cátedra (40m)</option>
+                                                    <option value="cargo" ${s.tipo === 'cargo' ? 'selected' : ''}>Reloj (60m)</option>
+                                                </select>
+                                            </td>
+                                            <td><input type="number" class="slot-cant" data-idx="${idx}" value="${s.cantidad || 1}" min="1" step="1" style="width:50px"></td>
+                                            <td><input type="time" class="slot-inicio" data-idx="${idx}" value="${s.hora_inicio || '08:00'}" required></td>
+                                            <td><input type="time" class="slot-fin" data-idx="${idx}" value="${s.hora_fin}" readonly style="opacity: 0.7; background: rgba(255,255,255,0.05)"></td>
+                                            <td><input type="number" class="slot-horas" data-idx="${idx}" value="${s.horas}" readonly style="width:60px; opacity: 0.7; background: rgba(255,255,255,0.05)"></td>
                                             <td><button type="button" class="btn-icon btn-delete-slot" data-idx="${idx}">✕</button></td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
                             
-                            <div class="total-display">
-                                <strong>Total Semanal: <span id="total-horas-preview">0</span> hs</strong>
+                            <div class="total-display" style="text-align: right; margin-top: 1rem; font-size: 1.1rem;">
+                                <strong>Total Semanal: <span id="total-horas-preview" style="color: var(--primary);">0</span> hs reloj</strong>
                             </div>
                         </div>
 
@@ -230,76 +246,98 @@ export const CargoAsignaciones = {
                 </div>
             `;
             
-            // Re-vincular eventos
-            modal.querySelector('#btn-add-slot').onclick = () => {
-                slots.push({ dia_semana: 'lunes', hora_inicio: '08:00', hora_fin: '09:00', horas: 1 });
-                renderForm();
+            const calculateEndTime = (inicio, tipo, cantidad) => {
+                if (!inicio || !cantidad) return '';
+                const [h, m] = inicio.split(':').map(Number);
+                const unitMins = tipo === 'cátedra' ? 40 : 60;
+                const totalMins = h * 60 + m + (cantidad * unitMins);
+                const endH = Math.floor(totalMins / 60) % 24;
+                const endM = totalMins % 60;
+                return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
             };
 
-            modal.querySelectorAll('.btn-delete-slot').forEach(btn => {
-                btn.onclick = (e) => {
-                    const idx = parseInt(e.target.dataset.idx);
-                    slots.splice(idx, 1);
-                    renderForm();
-                };
-            });
-
-            const calculateSlotHours = (inicio, fin) => {
-                if (!inicio || !fin) return 0;
-                const [h1, m1] = inicio.split(':').map(Number);
-                const [h2, m2] = fin.split(':').map(Number);
-                const mins = (h2 * 60 + m2) - (h1 * 60 + m1);
-                return Math.max(0, parseFloat((mins / 60).toFixed(2)));
+            const calculateRelojHours = (tipo, cantidad) => {
+                if (!cantidad) return 0;
+                const unitMins = tipo === 'cátedra' ? 40 : 60;
+                return parseFloat((cantidad * unitMins / 60).toFixed(2));
             };
 
-            // Sincronizar cambios en los inputs al array 'slots'
-            modal.querySelectorAll('.slot-dia, .slot-inicio, .slot-fin, .slot-horas').forEach(input => {
-                input.onchange = (e) => {
-                    const idx = parseInt(e.target.dataset.idx);
-                    const field = e.target.classList.contains('slot-dia') ? 'dia_semana' : 
-                                  e.target.classList.contains('slot-inicio') ? 'hora_inicio' :
-                                  e.target.classList.contains('slot-fin') ? 'hora_fin' : 'horas';
-                    
-                    slots[idx][field] = field === 'horas' ? parseFloat(e.target.value) : e.target.value;
-                    
-                    // Si cambia inicio o fin, recalcular horas automáticamente
-                    if (field === 'hora_inicio' || field === 'hora_fin') {
-                        const newHours = calculateSlotHours(slots[idx].hora_inicio, slots[idx].hora_fin);
-                        slots[idx].horas = newHours;
-                        
-                        // Actualizar el input de horas en el DOM para feedback visual inmediato
-                        const hoursInput = modal.querySelector(`.slot-horas[data-idx="${idx}"]`);
-                        if (hoursInput) hoursInput.value = newHours;
-                    }
-
-                    calcTotal();
-                };
-            });
+            const updateSlotCalculations = (idx) => {
+                const s = slots[idx];
+                s.hora_fin = calculateEndTime(s.hora_inicio, s.tipo, s.cantidad);
+                s.horas = calculateRelojHours(s.tipo, s.cantidad);
+                
+                // Actualizar UI
+                const finInput = modal.querySelector(`.slot-fin[data-idx="${idx}"]`);
+                const horasInput = modal.querySelector(`.slot-horas[data-idx="${idx}"]`);
+                if (finInput) finInput.value = s.hora_fin;
+                if (horasInput) horasInput.value = s.horas;
+                calcTotal();
+            };
 
             const calcTotal = () => {
                 const total = slots.reduce((acc, s) => acc + (parseFloat(s.horas) || 0), 0);
                 const el = modal.querySelector('#total-horas-preview');
                 if (el) el.textContent = total;
             };
+
+            // Re-vincular eventos
+            modal.querySelector('#btn-add-slot').onclick = () => {
+                slots.push({ dia_semana: 'lunes', tipo: 'cátedra', cantidad: 1, hora_inicio: '08:00', hora_fin: '08:40', horas: 0.67 });
+                renderForm();
+            };
+
+            modal.querySelectorAll('.btn-delete-slot').forEach(btn => {
+                btn.onclick = (e) => {
+                    const idx = parseInt(e.currentTarget.dataset.idx);
+                    slots.splice(idx, 1);
+                    renderForm();
+                };
+            });
+
+            // Sincronizar cambios en los inputs al array 'slots'
+            modal.querySelectorAll('.slot-dia, .slot-tipo, .slot-cant, .slot-inicio').forEach(input => {
+                input.onchange = (e) => {
+                    const idx = parseInt(e.target.dataset.idx);
+                    const val = e.target.value;
+                    
+                    if (e.target.classList.contains('slot-dia')) slots[idx].dia_semana = val;
+                    if (e.target.classList.contains('slot-tipo')) slots[idx].tipo = val;
+                    if (e.target.classList.contains('slot-cant')) slots[idx].cantidad = parseInt(val);
+                    if (e.target.classList.contains('slot-inicio')) slots[idx].hora_inicio = val;
+                    
+                    updateSlotCalculations(idx);
+                };
+                
+                // Forzar calculo inicial para campos precargados
+                const idx = parseInt(input.dataset.idx);
+                if (idx !== undefined && !slots[idx].hora_fin) updateSlotCalculations(idx);
+            });
+
             calcTotal();
 
-            modal.querySelector('#btn-close-modal').onclick = () => modal.remove();
+            const close = () => modal.remove();
+            modal.querySelector('#btn-close-modal').onclick = close;
+            modal.querySelector('#btn-close-modal-x').onclick = close;
             
             modal.querySelector('#asig-form').onsubmit = async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const data = Object.fromEntries(formData.entries());
                 
-                // Limpiar campos de la estructura vieja (evitar basura)
-                ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].forEach(d => delete data[`horas_${d}`]);
-                delete data.hora_inicio;
-                delete data.hora_fin;
-
-                data.docente_id = parseInt(data.docente_id);
-                data.cargo_id = parseInt(data.cargo_id);
+                data.docente_id = data.docente_id ? parseInt(data.docente_id) : null;
+                data.cargo_id = data.cargo_id ? parseInt(data.cargo_id) : null;
                 data.departamento_id = parseInt(data.departamento_id);
-                data.horarios = slots;
-                data.total_horas = slots.reduce((acc, s) => acc + (parseFloat(s.horas) || 0), 0);
+                
+                // Limpiar horarios para enviar solo lo que el esquema espera
+                data.horarios = slots.map(s => ({
+                    dia_semana: s.dia_semana,
+                    hora_inicio: s.hora_inicio,
+                    hora_fin: s.hora_fin,
+                    horas: parseFloat(s.horas) || 0
+                }));
+                
+                data.total_horas = data.horarios.reduce((acc, h) => acc + h.horas, 0);
 
                 if (!data.id) delete data.id;
                 const res = await CargoAsignaciones.save(data);
@@ -318,11 +356,19 @@ export const CargoAsignaciones = {
             const style = document.createElement('style');
             style.id = 'slots-styles';
             style.textContent = `
-                .slots-table th { font-size: 0.8em; color: var(--text-dim); }
-                .slots-table td { padding: 5px !important; }
-                .slots-table input, .slots-table select { padding: 4px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); color: white; border-radius: 4px; width: 100%; }
+                .slots-table th { font-size: 0.75rem; color: var(--text-dim); padding: 0.5rem !important; }
+                .slots-table td { padding: 4px !important; }
+                .slots-table input, .slots-table select { 
+                    padding: 6px; 
+                    border: 1px solid rgba(255,255,255,0.1); 
+                    background: rgba(0,0,0,0.2); 
+                    color: white; 
+                    border-radius: 6px; 
+                    width: 100%;
+                    font-size: 0.85rem;
+                }
                 .slot-badge { background: rgba(139, 92, 246, 0.2); color: #a78bfa; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; border: 1px solid rgba(139, 92, 246, 0.3); margin-right: 4px; margin-bottom: 2px; display: inline-block; }
-                .slots-summary { display: flex; flex-wrap: wrap; max-width: 300px; }
+                .slots-summary { display: flex; flex-wrap: wrap; max-width: 400px; }
             `;
             document.head.appendChild(style);
         }

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -14,18 +14,50 @@ class Institucion(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
+class Rol(Base):
+    __tablename__ = "roles"
+    __table_args__ = (UniqueConstraint('institucion_id', 'nombre', name='uix_rol_inst_nombre'),)
+    id = Column(Integer, primary_key=True, index=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id"), nullable=True) # Temporalmente nullable para migración
+    nombre = Column(String, index=True)
+    descripcion = Column(Text, nullable=True)
+
+    institucion = relationship("Institucion")
+    permisos = relationship("Permiso", back_populates="rol", cascade="all, delete-orphan")
+
+class Modulo(Base):
+    __tablename__ = "modulos"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, unique=True, index=True) # editor, docentes, materias, etc.
+    etiqueta = Column(String) # Nombre legible para la UI
+    icono = Column(String, nullable=True) # Emoji o clase de icono
+
+    permisos = relationship("Permiso", back_populates="modulo", cascade="all, delete-orphan")
+
+class Permiso(Base):
+    __tablename__ = "permisos"
+    id = Column(Integer, primary_key=True, index=True)
+    rol_id = Column(Integer, ForeignKey("roles.id", ondelete="CASCADE"))
+    modulo_id = Column(Integer, ForeignKey("modulos.id", ondelete="CASCADE"))
+    nivel = Column(String) # ninguno, lectura, edicion
+
+    rol = relationship("Rol", back_populates="permisos")
+    modulo = relationship("Modulo", back_populates="permisos")
+
 class Usuario(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
     institucion_id = Column(Integer, ForeignKey("instituciones.id"), nullable=True)
+    rol_id = Column(Integer, ForeignKey("roles.id"), nullable=True)
     username = Column(String, unique=True, index=True)
     password_hash = Column(String)
-    rol = Column(String)
+    rol = Column(String) # Legacy, mantener por ahora para compatibilidad en JWT
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     
     institucion = relationship("Institucion")
+    rol_obj = relationship("Rol")
 
 class Departamento(Base):
     __tablename__ = "departamentos"
@@ -169,7 +201,7 @@ class Cargo(Base):
 class CargoAsignacion(Base):
     __tablename__ = "cargo_asignaciones"
     id = Column(Integer, primary_key=True, index=True)
-    cargo_id = Column(Integer, ForeignKey("cargos.id"))
+    cargo_id = Column(Integer, ForeignKey("cargos.id"), nullable=True)
     docente_id = Column(Integer, ForeignKey("docentes.id"), nullable=True)
     departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
     

@@ -49,19 +49,38 @@ export const Editor = {
         gridContainer.innerHTML = '<div class="loading">Cargando grilla...</div>';
 
         try {
-            const [modulos, aulas, docentes, comisiones, asignaciones, deptos, excluidos, materias] = await Promise.all([
-                fetch('/api/modulos').then(r => r.json()),
-                fetch(`/api/aulas?departamento_id=${deptoId}`).then(r => r.json()),
+            const authHeader = { 'Authorization': `Bearer ${Auth.getToken()}` };
+            const [
+                modulosBatch, 
+                aulasBatch, 
+                docentes, 
+                comisiones, 
+                asignacionesBatch, 
+                deptos, 
+                excluidosBatch, 
+                cargosAsigBatch,
+                materias
+            ] = await Promise.all([
+                Auth.handleResponse(await fetch('/api/modulos', { headers: authHeader })).then(r => r ? r.json() : []),
+                Auth.handleResponse(await fetch(`/api/aulas?departamento_id=${deptoId}`, { headers: authHeader })).then(r => r ? r.json() : []),
                 Docentes.list(),
                 Comisiones.list(deptoId),
-                fetch(`/api/asignaciones?departamento_id=${deptoId}`).then(r => r.json()),
+                Auth.handleResponse(await fetch(`/api/asignaciones?departamento_id=${deptoId}`, { headers: authHeader })).then(r => r ? r.json() : []),
                 Departamentos.list(),
-                fetch(`/api/recreos_excluidos?departamento_id=${deptoId}`).then(r => r.json()),
+                Auth.handleResponse(await fetch(`/api/recreos_excluidos?departamento_id=${deptoId}`, { headers: authHeader })).then(r => r ? r.json() : []),
+                Auth.handleResponse(await fetch(`/api/cargo-asignaciones?departamento_id=${deptoId}`, { headers: authHeader })).then(r => r ? r.json() : []),
                 Materias.list(deptoId)
             ]);
 
+            // Robustness: Ensure we have arrays even on failure
+            const modulos = Array.isArray(modulosBatch) ? modulosBatch : [];
+            const aulas = Array.isArray(aulasBatch) ? aulasBatch : [];
+            const asignaciones = Array.isArray(asignacionesBatch) ? asignacionesBatch : [];
+            const excluidos = Array.isArray(excluidosBatch) ? excluidosBatch : [];
+            const cargosAsig = Array.isArray(cargosAsigBatch) ? cargosAsigBatch : [];
+
             const filteredModulos = modulos.filter(m => m.turno === turno)
-                .sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
+                .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
             const filteredAulas = aulas; 
 
             if (filteredAulas.length === 0) {
@@ -131,7 +150,7 @@ export const Editor = {
                                             <td class="grid-cell ${dIdx > 0 && aIdx === 0 ? 'day-divider' : ''}" 
                                                 onclick="window.editCell(${deptoId}, ${a.id}, ${m.id}, '${d}')"
                                                 data-aula="${a.id}" data-modulo="${m.id}" data-dia="${d}">
-                                                ${asig ? Editor.renderAsig(asig, docentes, comisiones) : '<div class="empty-cell">+</div>'}
+                                                ${asig ? Editor.renderAsig(asig, docentes, comisiones, m, d, cargosAsig) : '<div class="empty-cell">+</div>'}
                                             </td>
                                         `;
                                     }).join('')).join('')}
@@ -197,12 +216,13 @@ export const Editor = {
 
             window.editCell = (deptoId, aulaId, moduloId, dia) => {
                 const asig = asignaciones.find(as => as.aula_id === aulaId && as.modulo_id === moduloId && as.dia_semana === dia);
-                Editor.showCellForm(deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno);
+                const modulo = filteredModulos.find(m => m.id === moduloId);
+                Editor.showCellForm(deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno, cargosAsig, modulo);
             };
 
             window.toggleRecreo = async (deptoId, dia, moduloIdAnterior) => {
                 try {
-                    const response = await fetch('/api/recreos_excluidos', {
+                    const response = await Auth.handleResponse(await fetch('/api/recreos_excluidos', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -213,8 +233,8 @@ export const Editor = {
                             dia_semana: dia,
                             modulo_id_anterior: moduloIdAnterior
                         })
-                    });
-                    if (response.ok) {
+                    }));
+                    if (response && response.ok) {
                         Editor.loadGrid(deptoId, dia === 'todos' ? 'todos' : dia, turno);
                     }
                 } catch (error) {
@@ -233,18 +253,35 @@ export const Editor = {
         return h * 60 + m;
     },
 
-    renderAsig: (asig, docentes, comisiones) => {
+    checkCargoConflict: (docenteId, modulo, dia, cargosAsig) => {
+        if (!docenteId || !modulo || !dia || !cargosAsig) return null;
+        const asig = cargosAsig.find(ca => ca.docente_id === docenteId);
+        if (!asig || !asig.horarios) return null;
+        
+        return asig.horarios.find(h => {
+            if (h.dia_semana.toLowerCase() !== dia.toLowerCase()) return false;
+            return modulo.hora_inicio < h.hora_fin && h.hora_inicio < modulo.hora_fin;
+        });
+    },
+
+    renderAsig: (asig, docentes, comisiones, modulo = null, dia = null, cargosAsig = []) => {
         const doc = docentes.find(d => d.id === asig.docente_id);
         const com = comisiones.find(c => c.id === asig.comision_id);
+        
+        const conflict = modulo && dia ? Editor.checkCargoConflict(doc?.id, modulo, dia, cargosAsig) : null;
+
         return `
-            <div class="asig-item">
+            <div class="asig-item ${conflict ? 'has-cargo-warning' : ''}" title="${conflict ? 'Docente con Horas Cátedra / Cargo en este horario' : ''}">
                 <div class="asig-comision">${com ? com.codigo : ''}</div>
-                <div class="asig-docente">${doc ? doc.apellido : ''}</div>
+                <div class="asig-docente">
+                    ${doc ? doc.apellido : ''}
+                    ${conflict ? ' <span class="warning-icon" title="Tiene Horas Cátedra asignadas">⚠️</span>' : ''}
+                </div>
             </div>
         `;
     },
 
-    showCellForm: (deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno) => {
+    showCellForm: (deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno, cargosAsig = [], currentModulo = null) => {
         const modal = document.createElement('div');
         modal.className = 'modal';
         
@@ -285,12 +322,21 @@ export const Editor = {
                     
                     <div class="form-group">
                         <label>Docente:</label>
-                        <select name="docente_id">
+                        <select name="docente_id" id="docente-selector-modal">
                             <option value="">Ninguno</option>
                             ${docentes
                                 .sort((a, b) => (a.apellido || '').localeCompare(b.apellido || ''))
-                                .map(d => `<option value="${d.id}" ${asig?.docente_id === d.id ? 'selected' : ''}>${d.apellido}, ${d.nombre}</option>`).join('')}
+                                .map(d => {
+                                    const conflict = Editor.checkCargoConflict(d.id, currentModulo, dia, cargosAsig);
+                                    return `<option value="${d.id}" ${asig?.docente_id === d.id ? 'selected' : ''} 
+                                        style="${conflict ? 'color: #f59e0b' : ''}">
+                                        ${d.apellido}, ${d.nombre} ${conflict ? '⚠️ (Horas Cátedra)' : ''}
+                                    </option>`;
+                                }).join('')}
                         </select>
+                        <div id="cargo-warning-msg" class="warning-msg" style="display:none; color: #f59e0b; font-size: 0.85rem; margin-top: 5px;">
+                            ⚠️ El docente tiene horas cátedra asignadas en este horario.
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -330,6 +376,17 @@ export const Editor = {
         selAnio.onchange = updateComisiones;
         updateComisiones(); // Carga inicial
 
+        const selDoc = document.getElementById('docente-selector-modal');
+        const warnMsg = document.getElementById('cargo-warning-msg');
+        
+        const updateDocenteWarning = () => {
+            const docenteId = parseInt(selDoc.value);
+            const conflict = Editor.checkCargoConflict(docenteId, currentModulo, dia, cargosAsig);
+            warnMsg.style.display = conflict ? 'block' : 'none';
+        };
+        selDoc.onchange = updateDocenteWarning;
+        updateDocenteWarning();
+
         document.getElementById('btn-close-modal').onclick = () => modal.remove();
         document.getElementById('asig-form').onsubmit = async (e) => {
             e.preventDefault();
@@ -344,21 +401,21 @@ export const Editor = {
             data.docente_id = data.docente_id ? parseInt(data.docente_id) : null;
 
             try {
-                const response = await fetch('/api/asignaciones', {
+                const response = await Auth.handleResponse(await fetch('/api/asignaciones', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${Auth.getToken()}`
                     },
                     body: JSON.stringify(data)
-                });
+                }));
 
-                if (response.ok) {
+                if (response && response.ok) {
                     modal.remove();
                     // Obtener turno actual desde la función global o estado local si fuera necesario, 
                     // pero aquí lo más simple es simplemente refrescar con los mismos parámetros
                     Editor.loadGrid(deptoId, dia, turno);
-                } else {
+                } else if (response) {
                     const err = await response.json();
                     alert(err.detail || 'Error al guardar asignación');
                 }

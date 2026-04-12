@@ -5,11 +5,11 @@ import os
 from typing import Optional
 
 # Configuración de Seguridad
-SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-key-123")
+SECRET_KEY = "SGH-SECURE-KEY-STABLE-2026"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480 # 8 horas
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)

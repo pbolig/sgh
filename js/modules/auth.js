@@ -34,6 +34,21 @@ export const Auth = {
             // Guardar token y datos de usuario
             sessionStorage.setItem('jwt', data.access_token);
             sessionStorage.setItem('user', JSON.stringify(data.user));
+
+            // Fetch initial permissions
+            try {
+                const permsResponse = await fetch('/api/mis-permisos', {
+                    headers: { 'Authorization': `Bearer ${data.access_token}` }
+                });
+                if (permsResponse.ok) {
+                    const perms = await permsResponse.json();
+                    sessionStorage.setItem('permisos', JSON.stringify(perms));
+                } else {
+                    sessionStorage.setItem('permisos', '[]');
+                }
+            } catch (e) {
+                console.error('Error fetching permissions:', e);
+            }
             
             return { success: true, user: data.user };
         } catch (error) {
@@ -59,6 +74,35 @@ export const Auth = {
         }
     },
     getToken: () => {
-        return sessionStorage.getItem('jwt');
+        const token = sessionStorage.getItem('jwt');
+        if (!token) console.warn('DEBUG AUTH: getToken() retornó null');
+        return token;
+    },
+    // Método para centralizar el manejo de errores de respuesta
+    handleResponse: async (response) => {
+        if (response.status === 401) {
+            console.error('DEBUG AUTH: Recibido 401 (Unauthorized). Forzando cierre de sesión.');
+            Auth.logout();
+            window.location.reload(); // Recargar para volver al login
+            return null;
+        }
+        return response;
+    },
+    getPermissions: () => {
+        const permsStr = sessionStorage.getItem('permisos');
+        if (!permsStr) return [];
+        try {
+            return JSON.parse(permsStr);
+        } catch (e) {
+            return [];
+        }
+    },
+    hasPermission: (modulo, nivelRequerido = 'lectura') => {
+        const perms = Auth.getPermissions();
+        const p = perms.find(perm => perm.modulo?.nombre === modulo);
+        if (!p) return false;
+        
+        const niveles = { 'ninguno': 0, 'lectura': 1, 'edicion': 2 };
+        return niveles[p.nivel] >= niveles[nivelRequerido];
     }
 };
