@@ -38,6 +38,8 @@ export const Editor = {
         globalDeptoSelect.addEventListener('change', updateGrid);
 
         // Definir una función global para que los selectores inyectados puedan actualizar
+        window.editCellUnified = Editor.editCellUnified;
+        
         window.updateEditorFilters = (dia, turno) => {
             currentDia = dia;
             currentTurno = turno;
