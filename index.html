@@ -15,7 +15,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
-<body>
+<body class="loading-active"> <!-- Clase temporal para evitar flashes mientras carga el inicial -->
+    <!-- Cargador Global Premium (Glassmorphism) -->
+    <div id="global-loader" class="glass-overlay">
+        <div class="loader-content">
+            <div class="spinner-premium"></div>
+            <div class="loader-text">Sincronizando con el servidor...</div>
+        </div>
+    </div>
+
     <div id="app">
         <!-- Pantalla de Login -->
         <div id="login-screen" class="screen">
@@ -80,7 +88,8 @@
             <main id="content">
                 <header id="top-bar">
                     <div class="header-main">
-                        <button id="header-toggle" class="btn-toggle-mini">↕</button>
+                        <button id="mobile-menu-btn" class="btn-toggle-mini mobile-only">☰</button>
+                        <button id="header-toggle" class="btn-toggle-mini desktop-only">↕</button>
                         <h2 id="page-title">Dashboard</h2>
                     </div>
                     <div class="header-actions">

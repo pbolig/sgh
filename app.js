@@ -15,8 +15,12 @@ import { PAD } from './js/modules/pad.js';
 import { Instituciones } from './js/modules/instituciones.js';
 import { Permisos } from './js/modules/permisos.js';
 import { Usuarios } from './js/modules/usuarios.js';
+import { UI } from './js/utils/ui.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar UI y Interceptor Global
+    UI.init();
+    
     // Inicializar temporizador de inactividad
     Auth.setupInactivityTimer();
     
@@ -103,7 +107,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (toggleBtn) {
             toggleBtn.onclick = () => {
                 sidebar.classList.toggle('collapsed');
+                // En móvil usamos una clase distinta para el overlay
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.toggle('mobile-open');
+                }
                 localStorage.setItem('sidebar-collapsed', sidebar.classList.contains('collapsed'));
+            };
+        }
+
+        const mobileBtn = document.getElementById('mobile-menu-btn');
+        if (mobileBtn) {
+            mobileBtn.onclick = () => {
+                sidebar.classList.toggle('mobile-open');
             };
         }
     }
@@ -216,6 +231,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Actualizar estado activo
                     navLinks.forEach(l => l.parentElement.classList.remove('active'));
                     link.parentElement.classList.add('active');
+
+                    // En móvil, cerrar el sidebar tras clickear
+                    if (window.innerWidth <= 768) {
+                        const sidebar = document.getElementById('sidebar');
+                        sidebar.classList.remove('mobile-open');
+                    }
                 }
             });
         });
