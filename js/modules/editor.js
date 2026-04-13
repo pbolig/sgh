@@ -404,14 +404,22 @@ export const Editor = {
 
         // El aviso ⚠️ ahora es más específico si hay solapamiento con cargos
         const conflict = modulo && dia ? Editor.checkCargoConflict(doc?.id, modulo, dia, cargosAsig, aulaId) : null;
+        
+        const reem = asig.reemplazo_activo;
+        const titularStyle = reem ? 'opacity: 0.5; text-decoration: line-through; font-size: 0.8rem;' : '';
 
         return `
-            <div class="asig-block" style="border-left: 4px solid var(--primary)">
+            <div class="asig-block" style="border-left: 4px solid var(--primary); ${reem ? 'background: rgba(0,0,0,0.05);' : ''}">
                 <div class="asig-materia">${mat ? mat.nombre : 'S/M'}</div>
-                <div class="asig-docente">
+                <div class="asig-docente" style="${titularStyle}">
                     ${doc ? `${doc.apellido}, ${doc.nombre}` : 'S/D'}
                     ${conflict ? `<span title="Conflicto con Horas Cátedra / Cargo" class="pulse-warning">⚠️</span>` : ''}
                 </div>
+                ${reem ? `
+                    <div class="asig-reemplazo" style="color: var(--secondary); font-weight: bold; font-size: 0.85rem; display: flex; align-items: center; gap: 4px;">
+                        <span title="Reemplazo Activo">🔄</span> ${reem.reemplazante_nombre}
+                    </div>
+                ` : ''}
                 <div class="asig-comision">${com ? com.codigo : ''} ${com?.anio ? `(${com.anio}°)` : ''}</div>
             </div>
         `;
@@ -426,16 +434,24 @@ export const Editor = {
 
         const com = hor?.comision;
         const mat = com?.materia;
+        
+        const reem = cargoAsig.reemplazo_activo;
+        const titularStyle = reem ? 'opacity: 0.5; text-decoration: line-through; font-size: 0.75rem;' : '';
 
         return `
             <div class="cargo-block ${isVirtual ? 'cargo-virtual' : ''}" 
                  onclick="event.stopPropagation(); window.editCargoAula(${cargoAsig.id})"
-                 style="background: rgba(var(--secondary-rgb), 0.1); border-left: 4px solid var(--secondary); margin-top: 2px; padding: 4px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
+                 style="background: ${reem ? 'rgba(0,0,0,0.05)' : 'rgba(var(--secondary-rgb), 0.1)'}; border-left: 4px solid var(--secondary); margin-top: 2px; padding: 4px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
                 <div style="font-weight: 600; color: var(--secondary); display: flex; justify-content: space-between;">
                     <span>${mat ? mat.nombre : 'CARGO / H.C.'}</span>
                     ${isVirtual ? '<span title="Falta asignar aula" class="pulse-warning">⚠️</span>' : ''}
                 </div>
-                <div class="asig-docente">${doc ? `${doc.apellido}, ${doc.nombre}` : 'S/D'}</div>
+                <div class="asig-docente" style="${titularStyle}">${doc ? `${doc.apellido}, ${doc.nombre}` : 'S/D'}</div>
+                ${reem ? `
+                    <div style="color: var(--primary); font-weight: bold; font-size: 0.75rem; margin: 2px 0;">
+                        🔄 ${reem.reemplazante?.apellido}, ${reem.reemplazante?.nombre}
+                    </div>
+                ` : ''}
                 <div style="font-size: 0.7rem; opacity: 0.7; display: flex; justify-content: space-between;">
                     <span>${cargoAsig.cargo?.nombre || 'Horas Cátedra'}</span>
                     <span>${com ? `<b>${com.codigo}</b>` : ''}</span>

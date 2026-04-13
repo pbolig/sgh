@@ -2,6 +2,7 @@
 import { Auth } from './auth.js';
 import { Instituciones } from './instituciones.js';
 import { Departamentos } from './departamentos.js';
+import { Reemplazos } from './reemplazos.js';
 
 export const Docentes = {
     list: async (institucionId = null) => {
@@ -102,6 +103,7 @@ export const Docentes = {
                             <td>${d.telefono || '-'}</td>
                             <td>
                                 <div class="actions-cell">
+                                    <button class="btn-edit" onclick="window.manageLicencias(${d.id})">Licencias</button>
                                     <button class="btn-edit" onclick="window.editDocente(${d.id})">Editar</button>
                                     <button class="btn-delete" onclick="window.deleteDocente(${d.id})">Eliminar</button>
                                 </div>
@@ -128,6 +130,11 @@ export const Docentes = {
                 if (res.success) Docentes.render(containerId);
                 else alert(res.error);
             }
+        };
+
+        window.manageLicencias = (id) => {
+            const docente = docentes.find(d => d.id === id);
+            Reemplazos.showLicenciasManager(docente);
         };
     },
 
@@ -163,6 +170,24 @@ export const Docentes = {
                         <div class="form-group half">
                             <label>Nombre:</label>
                             <input type="text" name="nombre" value="${docente?.nombre || ''}">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group half">
+                            <label>Situación de Revista:</label>
+                            <select name="situacion_revista">
+                                <option value="interino" ${docente?.situacion_revista === 'interino' ? 'selected' : ''}>Interino</option>
+                                <option value="titular" ${docente?.situacion_revista === 'titular' ? 'selected' : ''}>Titular</option>
+                                <option value="suplente" ${docente?.situacion_revista === 'suplente' ? 'selected' : ''}>Suplente</option>
+                            </select>
+                        </div>
+                        <div class="form-group half">
+                            <label>Tipo de Profesional:</label>
+                            <select name="es_temporal">
+                                <option value="false" ${docente?.es_temporal === false ? 'selected' : ''}>Estable / Planta</option>
+                                <option value="true" ${docente?.es_temporal === true ? 'selected' : ''}>Temporal / Externo</option>
+                            </select>
                         </div>
                     </div>
 
@@ -237,7 +262,9 @@ export const Docentes = {
             
             // Recolectar IDs de la UI M2M
             data.institucion_ids = Array.from(modal.querySelectorAll('.inst-check:checked')).map(i => parseInt(i.value));
-            data.departamento_ids = Array.from(modal.querySelectorAll('.dept-check:checked')).map(i => parseInt(i.value));
+            data.departamento_id_list = Array.from(modal.querySelectorAll('.dept-check:checked')).map(i => parseInt(i.value)); // name conflict fix
+            data.departamento_ids = data.departamento_id_list;
+            data.es_temporal = data.es_temporal === "true";
             
             if (!data.id) delete data.id;
             

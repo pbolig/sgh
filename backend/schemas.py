@@ -127,6 +127,8 @@ class DocenteBase(BaseModel):
     nombre: Optional[str] = None
     email: Optional[str] = None
     telefono: Optional[str] = None
+    situacion_revista: Optional[str] = "interino"
+    es_temporal: Optional[bool] = False
     activo: Optional[int] = 1
 
 class DocenteCreate(DocenteBase):
@@ -139,6 +141,8 @@ class DocenteUpdate(BaseModel):
     nombre: Optional[str] = None
     email: Optional[str] = None
     telefono: Optional[str] = None
+    situacion_revista: Optional[str] = None
+    es_temporal: Optional[bool] = None
     activo: Optional[int] = None
 
 class Docente(DocenteBase):
@@ -317,12 +321,63 @@ class CargoAsignacionUpdate(BaseModel):
     activo: Optional[int] = None
     horarios: Optional[List[CargoHorarioCreate]] = None
 
+
+# --- ESQUEMAS DE LICENCIAS Y REEMPLAZOS ---
+
+class MotivoLicenciaBase(BaseModel):
+    nombre: str
+
+class MotivoLicenciaCreate(MotivoLicenciaBase):
+    pass
+
+class MotivoLicencia(MotivoLicenciaBase):
+    id: int
+    class Config:
+        from_attributes = True
+
+class ReemplazoBase(BaseModel):
+    reemplazante_id: int
+    cargo_asignacion_id: Optional[int] = None
+    asignacion_id: Optional[int] = None
+    fecha_inicio: str
+    fecha_fin: str
+
+class ReemplazoCreate(ReemplazoBase):
+    licencia_id: int
+
+class Reemplazo(ReemplazoBase):
+    id: int
+    licencia_id: int
+    reemplazante: Optional[Docente] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+class LicenciaBase(BaseModel):
+    docente_id: int
+    motivo_id: int
+    fecha_inicio: str
+    fecha_fin: str
+    observaciones: Optional[str] = None
+
+class LicenciaCreate(LicenciaBase):
+    pass
+
+class Licencia(LicenciaBase):
+    id: int
+    motivo: Optional[MotivoLicencia] = None
+    reemplazos: List[Reemplazo] = []
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
 class CargoAsignacion(CargoAsignacionBase):
     id: int
     created_at: datetime
     updated_at: datetime
     cargo: Optional[Cargo] = None
     horarios: List[CargoHorario] = []
+    reemplazo_activo: Optional[Reemplazo] = None
     
     class Config:
         from_attributes = True
@@ -345,6 +400,7 @@ class Asignacion(AsignacionBase):
     created_at: datetime
     updated_at: datetime
     updated_by: Optional[str] = None
+    reemplazo_activo: Optional[dict] = None
     class Config:
         from_attributes = True
 
@@ -483,3 +539,4 @@ class TurnoConfig(TurnoConfigBase):
     id: int
     class Config:
         from_attributes = True
+

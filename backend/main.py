@@ -690,7 +690,18 @@ async def get_cargo_asignaciones(depto_id: Optional[int] = None, db: Session = D
     )
     if depto_id:
         query = query.filter(models.CargoAsignacion.departamento_id == depto_id)
-    return query.all()
+    
+    results = query.all()
+    # Inyectar reemplazos activos
+    for res in results:
+        if res.docente_id:
+            reem = get_active_replacement(db, res.docente_id, cargo_id=res.id)
+            if reem:
+                # Añadir atributo dinámico para el esquema (Pydantic lo ignorará si no está definido, 
+                # pero lo usaremos en la serialización manual si es necesario o actualizando el esquema)
+                res.reemplazo_activo = reem
+                
+    return results
 
 @app.post("/cargo-asignaciones", response_model=schemas.CargoAsignacion)
 async def create_cargo_asignacion(asig: schemas.CargoAsignacionCreate, db: Session = Depends(get_db)):
@@ -801,7 +812,19 @@ async def get_asignaciones(institucion_id: Optional[int] = None, departamento_id
         query = query.join(models.Departamento).filter(models.Departamento.institucion_id == institucion_id)
     if departamento_id:
         query = query.filter(models.Asignacion.departamento_id == departamento_id)
-    return query.all()
+        
+    results = query.all()
+    # Inyectar reemplazos activos
+    for a in results:
+        if a.docente_id:
+            reem = get_active_replacement(db, a.docente_id, asig_id=a.id)
+            if reem:
+                a.reemplazo_activo = {
+                    "id": reem.id,
+                    "reemplazante_id": reem.reemplazante_id,
+                    "reemplazante_nombre": f"{reem.reemplazante.apellido}, {reem.reemplazante.nombre}" if reem.reemplazante else "S/D"
+                }
+    return results
 
 @app.post("/asignaciones", response_model=schemas.Asignacion)
 async def create_asignacion(asignacion: schemas.AsignacionCreate, db: Session = Depends(get_db)):
@@ -1072,3 +1095,109 @@ async def delete_planificacion(id: int, db: Session = Depends(get_db)):
     db.delete(db_plan)
     db.commit()
     return {"message": "Planificación eliminada correctamente"}
+
+# --- MOTIVOS DE LICENCIA ---
+
+@app.get("/motivos-licencia", response_model=List[schemas.MotivoLicencia])
+async def get_motivos_licencia(db: Session = Depends(get_db)):
+    return db.query(models.MotivoLicencia).all()
+
+@app.post("/motivos-licencia", response_model=schemas.MotivoLicencia)
+async def create_motivo_licencia(motivo: schemas.MotivoLicenciaCreate, db: Session = Depends(get_db)):
+    db_motivo = models.MotivoLicencia(**motivo.dict())
+    db.add(db_motivo)
+    try:
+        db.commit()
+        db.refresh(db_motivo)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="El motivo ya existe")
+    return db_motivo
+
+@app.delete("/motivos-licencia/{id}")
+async def delete_motivo_licencia(id: int, db: Session = Depends(get_db)):
+    db_motivo = db.query(models.MotivoLicencia).filter(models.MotivoLicencia.id == id).first()
+    if not db_motivo:
+        raise HTTPException(status_code=404, detail="Motivo no encontrado")
+    db.delete(db_motivo)
+    db.commit()
+    return {"message": "Motivo eliminado"}
+
+# --- LICENCIAS Y REEMPLAZOS ---
+
+@app.get("/licencias", response_model=List[schemas.Licencia])
+async def get_licencias(docente_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.Licencia).options(joinedload(models.Licencia.motivo), joinedload(models.Licencia.reemplazos).joinedload(models.Reemplazo.reemplazante))
+    if docente_id:
+        query = query.filter(models.Licencia.docente_id == docente_id)
+    return query.all()
+
+@app.post("/licencias", response_model=schemas.Licencia)
+async def create_licencia(lic: schemas.LicenciaCreate, db: Session = Depends(get_db)):
+    db_lic = models.Licencia(**lic.dict())
+    db.add(db_lic)
+    db.commit()
+    db.refresh(db_lic)
+    return db_lic
+
+@app.delete("/licencias/{id}")
+async def delete_licencia(id: int, db: Session = Depends(get_db)):
+    db_lic = db.query(models.Licencia).filter(models.Licencia.id == id).first()
+    if not db_lic:
+        raise HTTPException(status_code=404, detail="Licencia no encontrada")
+    db.delete(db_lic)
+    db.commit()
+    return {"message": "Licencia eliminada"}
+
+@app.post("/reemplazos", response_model=schemas.Reemplazo)
+async def create_reemplazo(reem: schemas.ReemplazoCreate, db: Session = Depends(get_db)):
+    db_reem = models.Reemplazo(**reem.dict())
+    db.add(db_reem)
+    db.commit()
+    db.refresh(db_reem)
+    return db_reem
+
+@app.delete("/reemplazos/{id}")
+async def delete_reemplazo(id: int, db: Session = Depends(get_db)):
+    db_reem = db.query(models.Reemplazo).filter(models.Reemplazo.id == id).first()
+    if not db_reem:
+        raise HTTPException(status_code=404, detail="Reemplazo no encontrado")
+    db.delete(db_reem)
+    db.commit()
+    return {"message": "Reemplazo eliminado"}
+
+# --- INYECCIÓN DE REEMPLAZOS EN ASIGNACIONES ---
+
+def get_active_replacement(db: Session, docente_id: int, cargo_id: int = None, asig_id: int = None):
+    today = datetime.date.today().isoformat()
+    # Buscar una licencia activa para el docente titular
+    licencias_activas = db.query(models.Licencia).filter(
+        models.Licencia.docente_id == docente_id,
+        models.Licencia.fecha_inicio <= today,
+        models.Licencia.fecha_fin >= today
+    ).all()
+    
+    if not licencias_activas:
+        return None
+        
+    lic_ids = [l.id for l in licencias_activas]
+    
+    # Buscar si hay un reemplazo específico para este cargo/asignación
+    query_reem = db.query(models.Reemplazo).options(joinedload(models.Reemplazo.reemplazante)).filter(
+        models.Reemplazo.licencia_id.in_(lic_ids),
+        models.Reemplazo.fecha_inicio <= today,
+        models.Reemplazo.fecha_fin >= today
+    )
+    
+    if cargo_id:
+        reem = query_reem.filter(models.Reemplazo.cargo_asignacion_id == cargo_id).first()
+        if reem: return reem
+        
+    if asig_id:
+        reem = query_reem.filter(models.Reemplazo.asignacion_id == asig_id).first()
+        if reem: return reem
+        
+    # Si hay una licencia activa pero no hay reemplazo específico configurado aún en esta tabla,
+    # podríamos devolver 'vacante' o simplemente dejar al titular si no se asignó suplente aún.
+    # Por ahora devolvemos el primer reemplazo que cubra esta licencia si no es específico.
+    return query_reem.first()

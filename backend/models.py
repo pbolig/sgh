@@ -111,6 +111,8 @@ class Docente(Base):
     nombre = Column(String, index=True)
     email = Column(String, nullable=True)
     telefono = Column(String, nullable=True)
+    situacion_revista = Column(String, default="interino") # titular, interino, suplente
+    es_temporal = Column(Boolean, default=False)
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -333,3 +335,42 @@ class Planificacion(Base):
     materia = relationship("Materia")
     docente = relationship("Docente")
     comision = relationship("Comision")
+
+# --- NUEVOS MODELOS DE LICENCIAS Y REEMPLAZOS ---
+
+class MotivoLicencia(Base):
+    __tablename__ = "motivos_licencia"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, unique=True, index=True)
+
+class Licencia(Base):
+    __tablename__ = "licencias"
+    id = Column(Integer, primary_key=True, index=True)
+    docente_id = Column(Integer, ForeignKey("docentes.id", ondelete="CASCADE"))
+    motivo_id = Column(Integer, ForeignKey("motivos_licencia.id"))
+    fecha_inicio = Column(String) # YYYY-MM-DD
+    fecha_fin = Column(String)    # YYYY-MM-DD
+    observaciones = Column(String(200), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    docente = relationship("Docente", backref="licencias")
+    motivo = relationship("MotivoLicencia")
+
+class Reemplazo(Base):
+    __tablename__ = "reemplazos"
+    id = Column(Integer, primary_key=True, index=True)
+    licencia_id = Column(Integer, ForeignKey("licencias.id", ondelete="CASCADE"))
+    reemplazante_id = Column(Integer, ForeignKey("docentes.id", ondelete="CASCADE"))
+    
+    # Puede ser reemplazo de un cargo completo o una asignación puntual de grilla
+    cargo_asignacion_id = Column(Integer, ForeignKey("cargo_asignaciones.id", ondelete="CASCADE"), nullable=True)
+    asignacion_id = Column(Integer, ForeignKey("asignaciones.id", ondelete="CASCADE"), nullable=True)
+    
+    fecha_inicio = Column(String) # YYYY-MM-DD
+    fecha_fin = Column(String)    # YYYY-MM-DD
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    licencia = relationship("Licencia", backref="reemplazos")
+    reemplazante = relationship("Docente")
+    cargo_asignacion = relationship("CargoAsignacion")
+    asignacion = relationship("Asignacion")
