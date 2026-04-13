@@ -1,4 +1,4 @@
-// js/modules/editor.js,
+// js/modules/editor.js
 import { Auth } from './auth.js';
 import { Departamentos } from './departamentos.js';
 import { Docentes } from './docentes.js';
@@ -39,7 +39,7 @@ export const Editor = {
 
         // Definir una función global para que los selectores inyectados puedan actualizar
         window.editCellUnified = Editor.editCellUnified;
-        
+
         window.updateEditorFilters = (dia, turno) => {
             currentDia = dia;
             currentTurno = turno;
@@ -159,7 +159,7 @@ export const Editor = {
                             return `
                                                     <td colspan="${filteredAulas.length}" 
                                                         class="${isExcluded ? 'break-excluded' : ''} ${dIdx > 0 ? 'day-divider' : ''}"
-                                                        onclick="window.toggleRecreo(${deptoId}, '${d}', ${timeline[idx - 1]?.id})"
+                                                        onclick="window.toggleRecreo(${deptoId}, '${d}', ${timeline[idx - 1]?.id || 'null'})"
                                                         title="Arrastre para reubicar. Click para ocultar.">
                                                         <div class="break-content" style="${isExcluded ? 'opacity: 0.1;' : ''}">
                                                             <span class="break-duration">${diff} min</span>
@@ -176,7 +176,7 @@ export const Editor = {
                                         <tr class="break-row draggable-row" draggable="true" ondragstart="window.onDragTimeline(${idx})" ondragover="event.preventDefault()" ondrop="window.onDropTimeline(${idx})">
                                             <td colspan="${totalCols}" 
                                                 class="${isExcluded ? 'break-excluded' : ''}"
-                                                onclick="window.toggleRecreo(${deptoId}, '${dia}', ${timeline[idx - 1]?.id})">
+                                                onclick="window.toggleRecreo(${deptoId}, '${dia}', ${timeline[idx - 1]?.id || 'null'})">
                                                 <div class="break-content" style="${isExcluded ? 'opacity: 0.1' : ''}">
                                                     <span class="break-label">≡ RECREO</span>
                                                     <span class="break-duration">${diff} min</span>
