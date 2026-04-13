@@ -30,8 +30,11 @@ export const Editor = {
 
         const updateGrid = () => {
             const deptoId = globalDeptoSelect.value;
+            const container = document.getElementById('grid-container');
+            if (!container) return;
+            
             if (deptoId) Editor.loadGrid(deptoId, currentDia, currentTurno);
-            else document.getElementById('grid-container').innerHTML = '<div class="loading">Seleccione un departamento en la barra superior</div>';
+            else container.innerHTML = '<div class="loading">Seleccione un departamento en la barra superior</div>';
         };
 
         // Escuchar cambios en el selector global
@@ -51,6 +54,7 @@ export const Editor = {
 
     loadGrid: async (deptoId, dia, turno) => {
         const gridContainer = document.getElementById('grid-container');
+        if (!gridContainer) return;
         gridContainer.innerHTML = '<div class="loading">Cargando grilla...</div>';
 
         try {

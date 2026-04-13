@@ -173,7 +173,7 @@ export const Reemplazos = {
                 </div>
             `;
             
-            document.getElementById('btn-new-licencia').onclick = () => Reemplazos.showLicenciaForm(docente, motivos, updateContent);
+            modal.querySelector('#btn-new-licencia').onclick = () => Reemplazos.showLicenciaForm(docente, motivos, updateContent);
             
             window.confirmDeleteLicencia = async (id) => {
                 if (confirm('¿Eliminar esta licencia y todos sus reemplazos asociados?')) {
@@ -243,7 +243,7 @@ export const Reemplazos = {
                 </div>
             `;
             
-            document.getElementById('btn-manage-motivos').onclick = () => {
+            modal.querySelector('#btn-manage-motivos').onclick = () => {
                 const nombre = prompt('Ingrese el nombre del nuevo motivo de licencia:');
                 if (nombre) {
                     Reemplazos.saveMotivo(nombre).then(async () => {
@@ -254,7 +254,7 @@ export const Reemplazos = {
                 }
             };
 
-            document.getElementById('licencia-form').onsubmit = async (e) => {
+            modal.querySelector('#licencia-form').onsubmit = async (e) => {
                 e.preventDefault();
                 const formData = new FormData(e.target);
                 const data = Object.fromEntries(formData.entries());
@@ -309,12 +309,12 @@ export const Reemplazos = {
             </div>
         `;
         
-        document.getElementById('btn-quick-add-docente').onclick = () => {
+        modal.querySelector('#btn-quick-add-docente').onclick = () => {
             const apellido = prompt('Apellido del profesional:');
             const nombre = prompt('Nombre del profesional:');
             if (apellido && nombre) {
                 Docentes.save({ apellido, nombre, es_temporal: true, situacion_revista: 'Suplente' }).then(async (res) => {
-                    if (res.success) {
+                    if (res && res.success) {
                         modal.remove();
                         Reemplazos.showReemplazoForm(licId, start, end, onComplete);
                     }
@@ -322,7 +322,7 @@ export const Reemplazos = {
             }
         };
 
-        document.getElementById('reemplazo-form').onsubmit = async (e) => {
+        modal.querySelector('#reemplazo-form').onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
             const data = Object.fromEntries(formData.entries());
