@@ -253,10 +253,32 @@ body {
 
     #top-bar {
         padding: 0.75rem 1rem !important;
+        flex-direction: column !important;
+        height: auto !important;
+        align-items: flex-start !important;
+        gap: 10px;
+    }
+
+    .header-main {
+        width: 100%;
+        justify-content: flex-start;
     }
 
     .header-actions {
-        display: none !important; 
+        display: flex !important; 
+        flex-direction: column !important;
+        width: 100%;
+        gap: 8px !important;
+    }
+
+    .select-modern {
+        width: 100% !important;
+        min-width: 0 !important;
+        font-size: 0.9rem;
+    }
+    
+    #print-btn {
+        display: none !important; /* El botón de imprimir no suele ser útil en móvil, lo ocultamos para ahorrar espacio */
     }
     
     #page-title {
