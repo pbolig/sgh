@@ -20,6 +20,13 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} '
             cd /opt/accesovirtual/sgh/app
             git pull origin main
+            
+            # Levantar servicios usando configuración de producción
             docker compose -f docker-compose.prod.yml up -d --build --force-recreate
+            
+            # Ejecutar migraciones automáticamente
+            docker exec sgh-backend python3 migrate_cargo_horarios.py
+            
+            # Limpieza de imágenes huérfanas
             docker image prune -f
           '
