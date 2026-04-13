@@ -3,6 +3,8 @@ import { Auth } from './auth.js';
 import { Docentes } from './docentes.js';
 import { Departamentos } from './departamentos.js';
 import { Cargos } from './cargos.js';
+import { Comisiones } from './comisiones.js';
+import { Modulos } from './modulos.js';
 
 export const CargoAsignaciones = {
     list: async (deptoId = null) => {
@@ -139,22 +141,47 @@ export const CargoAsignaciones = {
         };
     },
 
-    showForm: (asig = null, docentes = [], deptos = [], cargos = [], deptoId = null) => {
+    showForm: async (asig = null, docentes = [], deptos = [], cargos = [], deptoId = null, preFill = null) => {
         const isEdit = !!asig;
+        
+        // Cargar aulas y comisiones del departamento para el selector
+        const authHeader = { 'Authorization': `Bearer ${Auth.getToken()}` };
+        const dId = asig?.departamento_id || deptoId;
+        const [aulasRes, comisiones] = await Promise.all([
+            Auth.handleResponse(await fetch(`/api/aulas?departamento_id=${dId}`, { headers: authHeader })),
+            Comisiones.list(dId)
+        ]);
+        const aulas = (aulasRes && aulasRes.ok) ? await aulasRes.json() : [];
+
         const modal = document.createElement('div');
         modal.className = 'modal';
         
         let slots = asig?.horarios ? asig.horarios.map(s => ({
             ...s,
-            tipo: s.horas % 1 === 0 && (s.horas * 60) % 40 !== 0 ? 'cargo' : 'cátedra', // Intento de inferir
+            tipo: s.horas % 1 === 0 && (s.horas * 60) % 40 !== 0 ? 'cargo' : 'cátedra', 
             cantidad: s.horas % 1 === 0 && (s.horas * 60) % 40 !== 0 ? s.horas : (s.horas * 60 / 40)
         })) : [];
+
+        // Si se pasa información para pre-llenar y es un nuevo registro
+        if (preFill && !isEdit) {
+            slots.push({
+                dia_semana: preFill.dia || 'lunes',
+                tipo: 'cátedra',
+                cantidad: 1,
+                hora_inicio: preFill.hora_inicio || '08:00',
+                hora_fin: preFill.hora_fin || '08:40',
+                horas: 0.67,
+                aula_id: preFill.aulaId,
+                comision_id: preFill.comisionId,
+                modulo_id: preFill.moduloId
+            });
+        }
 
         const renderForm = () => {
             modal.innerHTML = `
                 <div class="modal-content animated zoomIn" style="max-width: 900px;">
                     <div class="modal-header">
-                        <h3>${isEdit ? 'Editar' : 'Nueva'} Asignación de Cargo</h3>
+                        <h3>${isEdit ? 'Editar' : 'Nueva'} Asignación de Cargos / Horas</h3>
                         <button class="btn-close-x" id="btn-close-modal-x">&times;</button>
                     </div>
                     <form id="asig-form">
@@ -203,6 +230,8 @@ export const CargoAsignaciones = {
                                         <th>Cant.</th>
                                         <th>Inicio</th>
                                         <th>Fin (Auto)</th>
+                                        <th>Aula</th>
+                                        <th>Comisión (Opcional)</th>
                                         <th>Hs (60m)</th>
                                         <th></th>
                                     </tr>
@@ -223,10 +252,22 @@ export const CargoAsignaciones = {
                                                     <option value="cargo" ${s.tipo === 'cargo' ? 'selected' : ''}>Reloj (60m)</option>
                                                 </select>
                                             </td>
-                                            <td><input type="number" class="slot-cant" data-idx="${idx}" value="${s.cantidad || 1}" min="1" step="1" style="width:50px"></td>
+                                            <td><input type="number" class="slot-cant" data-idx="${idx}" value="${s.cantidad || 1}" min="1" step="1" style="width:45px"></td>
                                             <td><input type="time" class="slot-inicio" data-idx="${idx}" value="${s.hora_inicio || '08:00'}" required></td>
-                                            <td><input type="time" class="slot-fin" data-idx="${idx}" value="${s.hora_fin}" readonly style="opacity: 0.7; background: rgba(255,255,255,0.05)"></td>
-                                            <td><input type="number" class="slot-horas" data-idx="${idx}" value="${s.horas}" readonly style="width:60px; opacity: 0.7; background: rgba(255,255,255,0.05)"></td>
+                                            <td><input type="time" class="slot-fin" data-idx="${idx}" value="${s.hora_fin}" readonly style="opacity: 0.7; background: rgba(255,255,255,0.05); width:65px"></td>
+                                            <td>
+                                                <select class="slot-aula" data-idx="${idx}" style="width: 100px;">
+                                                    <option value="">-- Aula --</option>
+                                                    ${aulas.map(a => `<option value="${a.id}" ${s.aula_id === a.id ? 'selected' : ''}>${a.nombre}</option>`).join('')}
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <select class="slot-comision" data-idx="${idx}">
+                                                    <option value="">Ninguna (Libre)</option>
+                                                    ${comisiones.map(c => `<option value="${c.id}" ${s.comision_id === c.id ? 'selected' : ''}>${c.codigo} - ${c.materia?.nombre || ''}</option>`).join('')}
+                                                </select>
+                                            </td>
+                                            <td><input type="number" class="slot-horas" data-idx="${idx}" value="${s.horas}" readonly style="width:55px; opacity: 0.7; background: rgba(255,255,255,0.05)"></td>
                                             <td><button type="button" class="btn-icon btn-delete-slot" data-idx="${idx}">✕</button></td>
                                         </tr>
                                     `).join('')}
@@ -328,15 +369,22 @@ export const CargoAsignaciones = {
                 data.docente_id = data.docente_id ? parseInt(data.docente_id) : null;
                 data.cargo_id = data.cargo_id ? parseInt(data.cargo_id) : null;
                 data.departamento_id = parseInt(data.departamento_id);
-                
-                // Limpiar horarios para enviar solo lo que el esquema espera
-                data.horarios = slots.map(s => ({
-                    dia_semana: s.dia_semana,
-                    hora_inicio: s.hora_inicio,
-                    hora_fin: s.hora_fin,
-                    horas: parseFloat(s.horas) || 0
-                }));
-                
+                const finalSlots = slots.map((s, idx) => {
+                    const row = document.querySelector(`.slot-dia[data-idx="${idx}"]`).closest('tr');
+                    const aulaId = row.querySelector('.slot-aula').value;
+                    const comId = row.querySelector('.slot-comision').value;
+                    const sData = slots[idx]; // rcuperar modulo_id si venía de preFill
+                    return {
+                        dia_semana: row.querySelector('.slot-dia').value,
+                        hora_inicio: row.querySelector('.slot-inicio').value,
+                        hora_fin: row.querySelector('.slot-fin').value,
+                        horas: parseFloat(row.querySelector('.slot-horas').value),
+                        aula_id: aulaId ? parseInt(aulaId) : null,
+                        comision_id: comId ? parseInt(comId) : null,
+                        modulo_id: sData.modulo_id || null
+                    };
+                });
+                data.horarios = finalSlots;
                 data.total_horas = data.horarios.reduce((acc, h) => acc + h.horas, 0);
 
                 if (!data.id) delete data.id;

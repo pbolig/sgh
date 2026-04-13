@@ -4,6 +4,9 @@ import { Departamentos } from './departamentos.js';
 import { Docentes } from './docentes.js';
 import { Materias } from './materias.js';
 import { Comisiones } from './comisiones.js';
+import { Cargos } from './cargos.js';
+import { CargoAsignaciones } from './cargo_asignaciones.js';
+import { Modulos } from './modulos.js';
 
 export const Editor = {
     render: async (containerId) => {
@@ -50,17 +53,7 @@ export const Editor = {
 
         try {
             const authHeader = { 'Authorization': `Bearer ${Auth.getToken()}` };
-            const [
-                modulosBatch, 
-                aulasBatch, 
-                docentes, 
-                comisiones, 
-                asignacionesBatch, 
-                deptos, 
-                excluidosBatch, 
-                cargosAsigBatch,
-                materias
-            ] = await Promise.all([
+            const batchCalls = [
                 Auth.handleResponse(await fetch('/api/modulos', { headers: authHeader })).then(r => r ? r.json() : []),
                 Auth.handleResponse(await fetch(`/api/aulas?departamento_id=${deptoId}`, { headers: authHeader })).then(r => r ? r.json() : []),
                 Docentes.list(),
@@ -69,8 +62,16 @@ export const Editor = {
                 Departamentos.list(),
                 Auth.handleResponse(await fetch(`/api/recreos_excluidos?departamento_id=${deptoId}`, { headers: authHeader })).then(r => r ? r.json() : []),
                 Auth.handleResponse(await fetch(`/api/cargo-asignaciones?departamento_id=${deptoId}`, { headers: authHeader })).then(r => r ? r.json() : []),
-                Materias.list(deptoId)
-            ]);
+                Materias.list(deptoId),
+                Cargos.list(),
+                Auth.handleResponse(await fetch(`/api/config-turnos/${deptoId}/${dia}/${turno}`, { headers: authHeader })).then(r => r ? r.json() : null)
+            ];
+            const results = await Promise.all(batchCalls);
+            
+            const [
+                modulosBatch, aulasBatch, docentes, comisiones, asignacionesBatch,
+                deptos, excluidosBatch, cargosAsigBatch, materias, cargosDef, configTurno
+            ] = results;
 
             // Robustness: Ensure we have arrays even on failure
             const modulos = Array.isArray(modulosBatch) ? modulosBatch : [];
@@ -79,9 +80,17 @@ export const Editor = {
             const excluidos = Array.isArray(excluidosBatch) ? excluidosBatch : [];
             const cargosAsig = Array.isArray(cargosAsigBatch) ? cargosAsigBatch : [];
 
-            const filteredModulos = modulos.filter(m => m.turno === turno)
+            // Filtrado resiliente por turno
+            const normalizedTurno = Editor.normalize(turno);
+            const filteredModulos = modulos.filter(m => Editor.normalize(m.turno) === normalizedTurno)
                 .sort((a, b) => (a.hora_inicio || '').localeCompare(b.hora_inicio || ''));
-            const filteredAulas = aulas; 
+            
+            // CONSTRUIR TIMELINE DINÁMICO
+            const timeline = Editor.buildTimeline(configTurno, filteredModulos);
+            const filteredAulas = [...aulas];
+            if (cargosAsig.some(ca => ca.horarios.some(h => h.aula_id === null))) {
+                filteredAulas.unshift({ id: 'virtual', nombre: '(Sin Aula / Cargos)', isVirtual: true });
+            }
 
             if (filteredAulas.length === 0) {
                 gridContainer.innerHTML = '<div class="error-message">Este departamento no tiene aulas registradas.</div>';
@@ -132,81 +141,99 @@ export const Editor = {
                         `}
                     </thead>
                     <tbody>
-                        ${filteredModulos.map((m, idx) => {
+                        ${timeline.map((step, idx) => {
+                            if (step.type === 'rec') {
+                                // RENDER RECREO
+                                const diff = step.dur;
+                                const totalCols = isAllDays ? (daysToRender.length * filteredAulas.length) + 1 : filteredAulas.length + 1;
+                                const breakExcl = (day) => excluidos.some(e => e.modulo_id_anterior === timeline[idx-1]?.id && e.dia_semana === day);
+
+                                if (isAllDays) {
+                                    return `
+                                        <tr class="break-row draggable-row" draggable="true" ondragstart="window.onDragTimeline(${idx})" ondragover="event.preventDefault()" ondrop="window.onDropTimeline(${idx})">
+                                            <td class="time-cell break-label">≡ RECREO</td>
+                                            ${daysToRender.map((d, dIdx) => {
+                                                const isExcluded = breakExcl(d);
+                                                return `
+                                                    <td colspan="${filteredAulas.length}" 
+                                                        class="${isExcluded ? 'break-excluded' : ''} ${dIdx > 0 ? 'day-divider' : ''}"
+                                                        onclick="window.toggleRecreo(${deptoId}, '${d}', ${timeline[idx-1]?.id})"
+                                                        title="Arrastre para reubicar. Click para ocultar.">
+                                                        <div class="break-content" style="${isExcluded ? 'opacity: 0.1;' : ''}">
+                                                            <span class="break-duration">${diff} min</span>
+                                                            <span class="break-time">${step.hora_inicio} - ${step.hora_fin}</span>
+                                                        </div>
+                                                    </td>
+                                                `;
+                                            }).join('')}
+                                        </tr>
+                                    `;
+                                } else {
+                                    const isExcluded = breakExcl(dia);
+                                    return `
+                                        <tr class="break-row draggable-row" draggable="true" ondragstart="window.onDragTimeline(${idx})" ondragover="event.preventDefault()" ondrop="window.onDropTimeline(${idx})">
+                                            <td colspan="${totalCols}" 
+                                                class="${isExcluded ? 'break-excluded' : ''}"
+                                                onclick="window.toggleRecreo(${deptoId}, '${dia}', ${timeline[idx-1]?.id})">
+                                                <div class="break-content" style="${isExcluded ? 'opacity: 0.1' : ''}">
+                                                    <span class="break-label">≡ RECREO</span>
+                                                    <span class="break-duration">${diff} min</span>
+                                                    <span class="break-time">${step.hora_inicio} - ${step.hora_fin}</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    `;
+                                }
+                            }
+
+                            // RENDER MODULO
+                            const m = step.modulo;
+                            if (!m) return '';
+
                             let rows = `
-                                <tr>
+                                <tr class="draggable-row" draggable="true" ondragstart="window.onDragTimeline(${idx})" ondragover="event.preventDefault()" ondrop="window.onDropTimeline(${idx})">
                                     <td class="time-cell">
-                                        <div class="mod-num">${m.numero}° Módulo</div>
-                                        <div class="mod-time">${m.hora_inicio} - ${m.hora_fin}</div>
+                                        <div class="mod-num">≡ ${m.numero}° Módulo</div>
+                                        <div class="mod-time">${step.hora_inicio} - ${step.hora_fin}</div>
                                     </td>
                                     ${daysToRender.map((d, dIdx) => filteredAulas.map((a, aIdx) => {
+                                        // Buscar asignación de clase normal
                                         const asig = asignaciones.find(as => 
                                             as.aula_id === a.id && 
                                             as.modulo_id === m.id && 
-                                            as.dia_semana === d
+                                            Editor.normalize(as.dia_semana) === Editor.normalize(d)
                                         );
+
+                                        // Buscar horas cátedra / cargos para esta celda
+                                        const cargosEnCelda = cargosAsig.filter(ca => {
+                                            // Validación de seguridad: el día debe tener horas > 0 en la asignación principal
+                                            const diaCto = d.toLowerCase().replace('í','i').replace('á','a').replace('é','e').replace('ó','o').replace('ú','u');
+                                            const horasDia = ca[`horas_${diaCto}`] || 0;
+                                            if (horasDia === 0) return false;
+
+                                            return ca.horarios.some(h => 
+                                                Editor.normalize(h.dia_semana) === Editor.normalize(d) &&
+                                                (
+                                                    (a.isVirtual && h.aula_id === null) || 
+                                                    (!a.isVirtual && h.aula_id === a.id)
+                                                ) &&
+                                                // Solapamiento de tiempo dinámico
+                                                (step.hora_inicio < h.hora_fin && h.hora_inicio < step.hora_fin)
+                                            );
+                                        });
                                         
                                         return `
                                             <td class="grid-cell ${dIdx > 0 && aIdx === 0 ? 'day-divider' : ''}" 
-                                                onclick="window.editCell(${deptoId}, ${a.id}, ${m.id}, '${d}')"
+                                                onclick="${a.isVirtual ? '' : `window.editCellUnified(${deptoId}, ${a.id}, ${m.id}, '${d}')`}"
                                                 data-aula="${a.id}" data-modulo="${m.id}" data-dia="${d}">
-                                                ${asig ? Editor.renderAsig(asig, docentes, comisiones, m, d, cargosAsig) : '<div class="empty-cell">+</div>'}
+                                                ${asig ? Editor.renderAsig(asig, docentes, comisiones, step, d, cargosAsig, a.id) : ''}
+                                                ${cargosEnCelda.map(ca => Editor.renderCargoBlock(ca, docentes, step, d, a.isVirtual)).join('')}
+                                                ${!asig && cargosEnCelda.length === 0 ? '<div class="empty-cell">+</div>' : ''}
                                             </td>
                                         `;
                                     }).join('')).join('')}
                                 </tr>
                             `;
-
-                            // Verificar si hay un recreo después de este módulo
-                            const nextM = filteredModulos[idx + 1];
-                            if (nextM) {
-                                const endMin = Editor.timeToMinutes(m.hora_fin);
-                                const startNextMin = Editor.timeToMinutes(nextM.hora_inicio);
-                                if (startNextMin > endMin) {
-                                    const diff = startNextMin - endMin;
-                                    const totalCols = isAllDays ? (daysToRender.length * filteredAulas.length) + 1 : filteredAulas.length + 1;
-                                    
-                                    // Verificar exclusiones por día para este recreo
-                                    const breakExcl = (day) => excluidos.some(e => e.modulo_id_anterior === m.id && e.dia_semana === day);
-
-                                    if (isAllDays) {
-                                        rows += `
-                                            <tr class="break-row">
-                                                <td class="time-cell break-label">RECREO</td>
-                                                ${daysToRender.map((d, dIdx) => {
-                                                    const isExcluded = breakExcl(d);
-                                                    return `
-                                                        <td colspan="${filteredAulas.length}" 
-                                                            class="${isExcluded ? 'break-excluded' : ''} ${dIdx > 0 ? 'day-divider' : ''}"
-                                                            onclick="window.toggleRecreo(${deptoId}, '${d}', ${m.id})"
-                                                            title="${isExcluded ? 'Recreo oculto (Click para activar)' : 'Recreo normal (Click para ocultar)'}">
-                                                            <div class="break-content" style="${isExcluded ? 'opacity: 0.1;' : ''}">
-                                                                <span class="break-duration">${diff} min</span>
-                                                                <span class="break-time">${m.hora_fin} - ${nextM.hora_inicio}</span>
-                                                            </div>
-                                                        </td>
-                                                    `;
-                                                }).join('')}
-                                            </tr>
-                                        `;
-                                    } else {
-                                        const isExcluded = breakExcl(dia);
-                                        rows += `
-                                            <tr class="break-row">
-                                                <td colspan="${totalCols}" 
-                                                    class="${isExcluded ? 'break-excluded' : ''}"
-                                                    onclick="window.toggleRecreo(${deptoId}, '${dia}', ${m.id})">
-                                                    <div class="break-content" style="${isExcluded ? 'opacity: 0.1' : ''}">
-                                                        <span class="break-label">RECREO</span>
-                                                        <span class="break-duration">${diff} min</span>
-                                                        <span class="break-time">${m.hora_fin} - ${nextM.hora_inicio}</span>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        `;
-                                    }
-                                }
-                            }
                             return rows;
                         }).join('')}
                     </tbody>
@@ -215,9 +242,61 @@ export const Editor = {
             gridContainer.innerHTML = html;
 
             window.editCell = (deptoId, aulaId, moduloId, dia) => {
-                const asig = asignaciones.find(as => as.aula_id === aulaId && as.modulo_id === moduloId && as.dia_semana === dia);
+                const asig = asignaciones.find(as => 
+                    as.aula_id === aulaId && 
+                    as.modulo_id === moduloId && 
+                    Editor.normalize(as.dia_semana) === Editor.normalize(dia)
+                );
                 const modulo = filteredModulos.find(m => m.id === moduloId);
                 Editor.showCellForm(deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno, cargosAsig, modulo);
+            };
+
+            window.editCargoAula = (asigId) => {
+                const asig = cargosAsig.find(a => a.id === asigId);
+                if (asig) {
+                    CargoAsignaciones.showForm(asig, docentes, deptos, cargosDef, deptoId);
+                }
+            };
+
+            let draggedIdx = null;
+            window.onDragTimeline = (idx) => {
+                draggedIdx = idx;
+                event.dataTransfer.effectAllowed = 'move';
+            };
+
+            window.onDropTimeline = async (dropIdx) => {
+                event.preventDefault();
+                if (draggedIdx === null || draggedIdx === dropIdx) return;
+
+                const newSequence = [...timeline.map(s => {
+                    const { idx, hora_inicio, hora_fin, modulo, ...rest } = s;
+                    return rest;
+                })];
+
+                const [movedItem] = newSequence.splice(draggedIdx, 1);
+                newSequence.splice(dropIdx, 0, movedItem);
+
+                try {
+                    const response = await Auth.handleResponse(await fetch('/api/config-turnos', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${Auth.getToken()}`
+                        },
+                        body: JSON.stringify({
+                            departamento_id: deptoId,
+                            dia_semana: dia,
+                            turno: turno,
+                            hora_inicio: timeline[0].hora_inicio,
+                            secuencia: newSequence
+                        })
+                    }));
+                    if (response) {
+                        Editor.loadGrid(deptoId, dia, turno);
+                    }
+                } catch (error) {
+                    console.error('Error al guardar secuencia:', error);
+                }
             };
 
             window.toggleRecreo = async (deptoId, dia, moduloIdAnterior) => {
@@ -247,38 +326,144 @@ export const Editor = {
             gridContainer.innerHTML = '<div class="error-message">Error al cargar la grilla</div>';
         }
     },
+    
+    buildTimeline: (config, filteredModulos) => {
+        let secuencia = config?.secuencia;
+        let horaInicio = config?.hora_inicio || (filteredModulos.length > 0 ? filteredModulos[0].hora_inicio : "08:00");
+        
+        if (!secuencia) {
+            // Generar secuencia por defecto basada en los huecos existentes
+            secuencia = [];
+            filteredModulos.forEach((m, idx) => {
+                secuencia.push({ type: 'mod', id: m.id, num: m.numero });
+                const nextM = filteredModulos[idx + 1];
+                if (nextM) {
+                    const gap = Editor.timeToMinutes(nextM.hora_inicio) - Editor.timeToMinutes(m.hora_fin);
+                    if (gap > 0) secuencia.push({ type: 'rec', dur: gap });
+                }
+            });
+        }
+
+        // Calcular timeline real sumando duraciones
+        let currentTime = Editor.timeToMinutes(horaInicio);
+        return secuencia.map((item, idx) => {
+            const step = { ...item, idx };
+            step.hora_inicio = Editor.minutesToTime(currentTime);
+            if (item.type === 'mod') {
+                const m = filteredModulos.find(mod => mod.id === item.id);
+                step.modulo = m;
+                step.duracion = 40; // Módulos de 40m
+                step.hora_fin = Editor.minutesToTime(currentTime + 40);
+                currentTime += 40;
+            } else {
+                step.hora_fin = Editor.minutesToTime(currentTime + item.dur);
+                currentTime += item.dur;
+            }
+            return step;
+        });
+    },
+
+    minutesToTime: (totalMinutes) => {
+        const h = Math.floor(totalMinutes / 60) % 24;
+        const m = totalMinutes % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    },
 
     timeToMinutes: (timeStr) => {
         const [h, m] = timeStr.split(':').map(Number);
         return h * 60 + m;
     },
 
-    checkCargoConflict: (docenteId, modulo, dia, cargosAsig) => {
+    normalize: (str) => {
+        if (!str) return '';
+        return str.toLowerCase()
+                  .normalize("NFD")
+                  .replace(/[\u0300-\u036f]/g, "") // Quitar acentos
+                  .replace(/[^a-z0-9]/g, "");     // Quitar todo lo que no sea letra o número
+    },
+
+    checkCargoConflict: (docenteId, modulo, dia, cargosAsig, currentAulaId = null) => {
         if (!docenteId || !modulo || !dia || !cargosAsig) return null;
         const asig = cargosAsig.find(ca => ca.docente_id === docenteId);
         if (!asig || !asig.horarios) return null;
         
         return asig.horarios.find(h => {
-            if (h.dia_semana.toLowerCase() !== dia.toLowerCase()) return false;
+            if (Editor.normalize(h.dia_semana) !== Editor.normalize(dia)) return false;
+            // Solo es conflicto si es en un aula distinta (o virtual) que la actual
+            if (currentAulaId && h.aula_id === currentAulaId) return false; 
             return modulo.hora_inicio < h.hora_fin && h.hora_inicio < modulo.hora_fin;
         });
     },
 
-    renderAsig: (asig, docentes, comisiones, modulo = null, dia = null, cargosAsig = []) => {
+    renderAsig: (asig, docentes, comisiones, modulo = null, dia = null, cargosAsig = [], aulaId = null) => {
         const doc = docentes.find(d => d.id === asig.docente_id);
         const com = comisiones.find(c => c.id === asig.comision_id);
+        const mat = com?.materia;
         
-        const conflict = modulo && dia ? Editor.checkCargoConflict(doc?.id, modulo, dia, cargosAsig) : null;
+        // El aviso ⚠️ ahora es más específico si hay solapamiento con cargos
+        const conflict = modulo && dia ? Editor.checkCargoConflict(doc?.id, modulo, dia, cargosAsig, aulaId) : null;
 
         return `
-            <div class="asig-item ${conflict ? 'has-cargo-warning' : ''}" title="${conflict ? 'Docente con Horas Cátedra / Cargo en este horario' : ''}">
-                <div class="asig-comision">${com ? com.codigo : ''}</div>
+            <div class="asig-block" style="border-left: 4px solid var(--primary)">
+                <div class="asig-materia">${mat ? mat.nombre : 'S/M'}</div>
                 <div class="asig-docente">
-                    ${doc ? doc.apellido : ''}
-                    ${conflict ? ' <span class="warning-icon" title="Tiene Horas Cátedra asignadas">⚠️</span>' : ''}
+                    ${doc ? `${doc.apellido}, ${doc.nombre}` : 'S/D'}
+                    ${conflict ? `<span title="Conflicto con Horas Cátedra / Cargo" class="pulse-warning">⚠️</span>` : ''}
+                </div>
+                <div class="asig-comision">${com ? com.codigo : ''} ${com?.anio ? `(${com.anio}°)` : ''}</div>
+            </div>
+        `;
+    },
+
+    renderCargoBlock: (cargoAsig, docentes, modulo, dia, isVirtual) => {
+        const doc = docentes.find(d => d.id === cargoAsig.docente_id);
+        const hor = cargoAsig.horarios.find(h => 
+            Editor.normalize(h.dia_semana) === Editor.normalize(dia) &&
+            (modulo.hora_inicio < h.hora_fin && h.hora_inicio < modulo.hora_fin)
+        );
+
+        const com = hor?.comision;
+        const mat = com?.materia;
+
+        return `
+            <div class="cargo-block ${isVirtual ? 'cargo-virtual' : ''}" 
+                 onclick="event.stopPropagation(); window.editCargoAula(${cargoAsig.id})"
+                 style="background: rgba(var(--secondary-rgb), 0.1); border-left: 4px solid var(--secondary); margin-top: 2px; padding: 4px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;">
+                <div style="font-weight: 600; color: var(--secondary); display: flex; justify-content: space-between;">
+                    <span>${mat ? mat.nombre : 'CARGO / H.C.'}</span>
+                    ${isVirtual ? '<span title="Falta asignar aula" class="pulse-warning">⚠️</span>' : ''}
+                </div>
+                <div class="asig-docente">${doc ? `${doc.apellido}, ${doc.nombre}` : 'S/D'}</div>
+                <div style="font-size: 0.7rem; opacity: 0.7; display: flex; justify-content: space-between;">
+                    <span>${cargoAsig.cargo?.nombre || 'Horas Cátedra'}</span>
+                    <span>${com ? `<b>${com.codigo}</b>` : ''}</span>
                 </div>
             </div>
         `;
+    },
+
+    editCellUnified: async (deptoId, aulaId, moduloId, dia) => {
+        // Redirigir a vista de cargos para asegurar que el contexto sea el correcto
+        // document.querySelector('[data-view="cargos"]').click();
+        
+        // Obtener datos necesarios para abrir el formulario de cargos
+        const [docentes, deptos, cargos, modulos] = await Promise.all([
+            Docentes.list(null, deptoId),
+            Departamentos.list(),
+            Cargos.list(),
+            Modulos.list()
+        ]);
+
+        const mod = modulos.find(m => m.id === moduloId);
+        
+        // Abrir el formulario directamente con pre-llenado
+        CargoAsignaciones.showForm(null, docentes, deptos, cargos, deptoId, {
+            dia: dia,
+            aulaId: aulaId,
+            moduloId: moduloId,
+            hora_inicio: mod?.hora_inicio,
+            hora_fin: mod?.hora_fin
+        });
     },
 
     showCellForm: (deptoId, aulaId, moduloId, dia, asig, docentes, comisiones, materias, turno, cargosAsig = [], currentModulo = null) => {
@@ -344,9 +529,14 @@ export const Editor = {
                         <textarea name="observaciones">${asig?.observaciones || ''}</textarea>
                     </div>
 
-                    <div class="modal-actions">
-                        <button type="submit" class="btn-primary">Guardar</button>
-                        <button type="button" class="btn-secondary" id="btn-close-modal">Cancelar</button>
+                    <div class="modal-actions" style="margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" class="btn-primary" style="flex: 2;">Guardar Asignación de Clase</button>
+                            <button type="button" class="btn-secondary" id="btn-close-modal" style="flex: 1;">Cancelar</button>
+                        </div>
+                        <button type="button" id="btn-manage-as-cargo" class="btn-edit" style="width: 100%; justify-content: center; background: rgba(var(--secondary-rgb), 0.1); border: 1px solid var(--secondary); color: var(--secondary); display: flex; align-items: center; gap: 8px;">
+                            📅 Gestionar como Cargo / Horas Cátedra
+                        </button>
                     </div>
                 </form>
             </div>
@@ -388,6 +578,20 @@ export const Editor = {
         updateDocenteWarning();
 
         document.getElementById('btn-close-modal').onclick = () => modal.remove();
+
+        // Acceso directo a Gestión de Cargos
+        document.getElementById('btn-manage-as-cargo').onclick = async () => {
+            const docenteId = parseInt(selDoc.value);
+            modal.remove();
+            
+            // Buscar si ya existe una asignación para este docente en este departamento
+            const asigs = await CargoAsignaciones.list(deptoId);
+            const existingAsig = docenteId ? asigs.find(a => a.docente_id === docenteId) : null;
+            
+            // Abrir el formulario de Cargos
+            CargoAsignaciones.showForm(existingAsig, docentes, [], [], deptoId);
+        };
+
         document.getElementById('asig-form').onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);

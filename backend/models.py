@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Float, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -33,6 +33,17 @@ class Modulo(Base):
     icono = Column(String, nullable=True) # Emoji o clase de icono
 
     permisos = relationship("Permiso", back_populates="modulo", cascade="all, delete-orphan")
+
+class TurnoConfig(Base):
+    __tablename__ = "config_turnos"
+    id = Column(Integer, primary_key=True, index=True)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
+    turno = Column(String)     # maana, tarde, noche
+    dia_semana = Column(String) # lunes, martes...
+    hora_inicio = Column(String) # ej: "07:45"
+    secuencia = Column(JSON)    # List of {"type": "mod", "num": 1} or {"type": "rec", "dur": 10}
+
+    departamento = relationship("Departamento")
 
 class Permiso(Base):
     __tablename__ = "permisos"
@@ -238,8 +249,16 @@ class CargoHorario(Base):
     hora_inicio = Column(String) # "08:00"
     hora_fin = Column(String)    # "09:00"
     horas = Column(Float, default=0) # Cantidad de horas (60 min) en este slot
+    aula_id = Column(Integer, ForeignKey("aulas.id"), nullable=True)
+    # Nuevas columnas para unificación
+    comision_id = Column(Integer, ForeignKey("comisiones.id"), nullable=True)
+    modulo_id = Column(Integer, ForeignKey("modulos_horario.id"), nullable=True)
+    observaciones = Column(Text, nullable=True)
     
     asignacion = relationship("CargoAsignacion", back_populates="horarios")
+    aula = relationship("Aula")
+    comision = relationship("Comision")
+    modulo = relationship("ModuloHorario")
 
 # --- MODELOS DE CALENDARIO ---
 

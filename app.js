@@ -17,7 +17,8 @@ import { Permisos } from './js/modules/permisos.js';
 import { Usuarios } from './js/modules/usuarios.js';
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('App inicializada');
+    // Inicializar temporizador de inactividad
+    Auth.setupInactivityTimer();
     
     // Verificar si ya está logueado
     if (Auth.isLoggedIn()) {

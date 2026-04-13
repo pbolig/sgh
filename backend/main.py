@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, Form
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 import datetime
@@ -136,8 +136,8 @@ async def create_rol(rol: schemas.RolCreate, db: Session = Depends(get_db), curr
     db.refresh(db_rol)
     return db_rol
 
-@app.get("/modulos", response_model=List[schemas.Modulo])
-async def get_modulos(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+@app.get("/modulos-sistema", response_model=List[schemas.Modulo])
+async def get_modulos_sistema(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
     return db.query(models.Modulo).all()
 
 @app.get("/permisos", response_model=List[schemas.Permiso])
@@ -682,12 +682,14 @@ async def delete_cargo(id: int, db: Session = Depends(get_db)):
 # --- CARGO ASIGNACIONES ---
 
 @app.get("/cargo-asignaciones", response_model=List[schemas.CargoAsignacion])
-async def get_cargo_asignaciones(institucion_id: Optional[int] = None, departamento_id: Optional[int] = None, db: Session = Depends(get_db)):
-    query = db.query(models.CargoAsignacion)
-    if institucion_id:
-        query = query.join(models.Departamento).filter(models.Departamento.institucion_id == institucion_id)
-    if departamento_id:
-        query = query.filter(models.CargoAsignacion.departamento_id == departamento_id)
+async def get_cargo_asignaciones(depto_id: Optional[int] = None, db: Session = Depends(get_db)):
+    query = db.query(models.CargoAsignacion).options(
+        joinedload(models.CargoAsignacion.cargo),
+        joinedload(models.CargoAsignacion.horarios).joinedload(models.CargoHorario.comision).joinedload(models.Comision.materia),
+        joinedload(models.CargoAsignacion.horarios).joinedload(models.CargoHorario.modulo)
+    )
+    if depto_id:
+        query = query.filter(models.CargoAsignacion.departamento_id == depto_id)
     return query.all()
 
 @app.post("/cargo-asignaciones", response_model=schemas.CargoAsignacion)
@@ -708,9 +710,19 @@ async def create_cargo_asignacion(asig: schemas.CargoAsignacionCreate, db: Sessi
     db.commit()
     db.refresh(new_asig)
     
-    # Crear los slots horarios
+    # Crear los slots horarios con los campos unificados
     for h_data in horarios_data:
-        db_h = models.CargoHorario(**h_data, asignacion_id=new_asig.id)
+        comision_id = h_data.pop('comision_id', None)
+        modulo_id = h_data.pop('modulo_id', None)
+        observaciones = h_data.pop('observaciones', None)
+        
+        db_h = models.CargoHorario(
+            **h_data, 
+            asignacion_id=new_asig.id,
+            comision_id=comision_id,
+            modulo_id=modulo_id,
+            observaciones=observaciones
+        )
         db.add(db_h)
     
     db.commit()
@@ -734,10 +746,26 @@ async def update_cargo_asignacion(id: int, asig: schemas.CargoAsignacionUpdate, 
     if horarios_data is not None:
         # Borrar anteriores
         db.query(models.CargoHorario).filter(models.CargoHorario.asignacion_id == id).delete()
-        # Insertar nuevos
+        # Insertar nuevos (solo si el día tiene horas > 0 o si no se especifican horas_dia)
         for h_data in horarios_data:
-            db_h = models.CargoHorario(**h_data, asignacion_id=id)
-            db.add(db_h)
+            # Extraer campos para evitar duplicados al usar **h_data
+            comision_id = h_data.pop('comision_id', None)
+            modulo_id = h_data.pop('modulo_id', None)
+            observaciones = h_data.pop('observaciones', None)
+            
+            dia = h_data.get('dia_semana', '').lower()
+            dia_map = dia.replace('í','i').replace('á','a').replace('é','e').replace('ó','o').replace('ú','u')
+            horas_dia = getattr(db_asig, f'horas_{dia_map}', 1)
+            
+            if horas_dia > 0:
+                db_h = models.CargoHorario(
+                    **h_data, 
+                    asignacion_id=id,
+                    comision_id=comision_id,
+                    modulo_id=modulo_id,
+                    observaciones=observaciones
+                )
+                db.add(db_h)
         # Recalcular total desde slots
         db_asig.total_horas = sum([h.get('horas', 0) for h in horarios_data])
     else:
@@ -804,6 +832,43 @@ async def get_recreos_excluidos(institucion_id: Optional[int] = None, departamen
     return query.all()
 
 @app.post("/recreos_excluidos")
+async def create_recreo_excluido(recreo: schemas.RecreoExcluidoCreate, db: Session = Depends(get_db)):
+    db.add(models.RecreoExcluido(**recreo.dict()))
+    db.commit()
+    return {"message": "Recreo excluido correctamente"}
+
+# --- CONFIGURACION DE TURNOS (DYNAMIC TIMELINE) ---
+
+@app.get("/config-turnos/{departamento_id}/{dia}/{turno}", response_model=Optional[schemas.TurnoConfig])
+async def get_config_turno(departamento_id: int, dia: str, turno: str, db: Session = Depends(get_db)):
+    return db.query(models.TurnoConfig).filter(
+        models.TurnoConfig.departamento_id == departamento_id,
+        models.TurnoConfig.dia_semana == dia,
+        models.TurnoConfig.turno == turno
+    ).first()
+
+@app.post("/config-turnos", response_model=schemas.TurnoConfig)
+async def upsert_config_turno(config: schemas.TurnoConfigCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.TurnoConfig).filter(
+        models.TurnoConfig.departamento_id == config.departamento_id,
+        models.TurnoConfig.dia_semana == config.dia_semana,
+        models.TurnoConfig.turno == config.turno
+    ).first()
+    
+    if existing:
+        existing.hora_inicio = config.hora_inicio
+        existing.secuencia = config.secuencia
+        db.commit()
+        db.refresh(existing)
+        return existing
+    
+    new_config = models.TurnoConfig(**config.dict())
+    db.add(new_config)
+    db.commit()
+    db.refresh(new_config)
+    return new_config
+
+@app.post("/recreos_excluidos_toggle")
 async def toggle_recreo_excluido(recreo: schemas.RecreoExcluidoCreate, db: Session = Depends(get_db)):
     existing = db.query(models.RecreoExcluido).filter(
         models.RecreoExcluido.departamento_id == recreo.departamento_id,

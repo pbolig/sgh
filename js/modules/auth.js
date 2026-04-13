@@ -104,5 +104,26 @@ export const Auth = {
         
         const niveles = { 'ninguno': 0, 'lectura': 1, 'edicion': 2 };
         return niveles[p.nivel] >= niveles[nivelRequerido];
+    },
+    setupInactivityTimer: () => {
+        let timeout;
+        const INACTIVITY_TIME = 30 * 60 * 1000; // 30 minutos
+        
+        const resetTimer = () => {
+            clearTimeout(timeout);
+            if (Auth.isLoggedIn()) {
+                timeout = setTimeout(() => {
+                    console.log('Sesión expirada por inactividad.');
+                    Auth.logout();
+                }, INACTIVITY_TIME);
+            }
+        };
+
+        // Escuchar eventos de interacción
+        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(event => {
+            window.addEventListener(event, resetTimer);
+        });
+
+        resetTimer();
     }
 };

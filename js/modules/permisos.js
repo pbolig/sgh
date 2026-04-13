@@ -19,7 +19,7 @@ export const Permisos = {
 
     getModulos: async () => {
         try {
-            const response = await Auth.handleResponse(await fetch('/api/modulos', {
+            const response = await Auth.handleResponse(await fetch('/api/modulos-sistema', {
                 headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
             }));
             if (!response || !response.ok) return [];

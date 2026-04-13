@@ -15,6 +15,25 @@
     --font-heading: 'Outfit', sans-serif;
 }
 
+/* --- DRAG & DROP EDITOR --- */
+.draggable-row {
+    cursor: grab;
+    transition: transform 0.2s, background 0.2s;
+}
+
+.draggable-row:active {
+    cursor: grabbing;
+}
+
+.draggable-row.dragging {
+    opacity: 0.4;
+    background: rgba(99, 102, 241, 0.2) !important;
+}
+
+.draggable-row.drag-over {
+    border-top: 2px solid var(--primary);
+}
+
 html, body {
     height: 100vh;
     height: 100dvh;
