@@ -11,9 +11,11 @@ export const UI = {
     init: () => {
         UI.loader = document.getElementById('global-loader');
         UI.setupFetchInterceptor();
-        // Quitar la clase inicial si existe
+        
+        // Reset robusto del estado inicial
+        UI.loadingCount = 0;
         document.body.classList.remove('loading-active');
-        UI.hideLoader(); // Asegurar que empiece oculto tras el init
+        if (UI.loader) UI.loader.classList.add('hidden');
     },
 
     showLoader: (text = 'Sincronizando con el servidor...') => {
@@ -30,7 +32,10 @@ export const UI = {
         if (UI.loadingCount <= 0) {
             UI.loadingCount = 0;
             if (UI.loader) {
-                UI.loader.classList.add('hidden');
+                // Pequeño delay para evitar parpadeos y asegurar la transición
+                setTimeout(() => {
+                    if (UI.loadingCount === 0) UI.loader.classList.add('hidden');
+                }, 100);
             }
         }
     },

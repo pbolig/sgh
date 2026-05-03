@@ -1,4 +1,5 @@
 /* ── PAD MODULE (Planificación de Asignaturas y Disciplinas) ── */
+import { Auth } from './auth.js';
 
 export const PAD = {
     currentPlan: null,
@@ -12,11 +13,12 @@ export const PAD = {
         const deptoId = document.getElementById('dept-selector')?.value;
         const instId = document.getElementById('inst-selector')?.value;
         console.log("PAD Module initialized");
+        const authHeader = { 'Authorization': `Bearer ${Auth.getToken()}` };
         try {
             const [mats, docs, coms] = await Promise.all([
-                fetch(`/api/materias${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
-                fetch(`/api/docentes${instId ? '?institucion_id=' + instId : ''}`).then(r => r.json()),
-                fetch(`/api/comisiones${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json())
+                fetch(`/api/materias${deptoId ? '?departamento_id=' + deptoId : ''}`, { headers: authHeader }).then(r => r.json()),
+                fetch(`/api/docentes${instId ? '?institucion_id=' + instId : ''}`, { headers: authHeader }).then(r => r.json()),
+                fetch(`/api/comisiones${deptoId ? '?departamento_id=' + deptoId : ''}`, { headers: authHeader }).then(r => r.json())
             ]);
             this.db.materias = mats;
             this.db.docentes = docs;
@@ -555,7 +557,9 @@ export const PAD = {
         if (!materiaId || !anio) return alert("Seleccione materia y año");
 
         try {
-            const res = await fetch(`/api/planificaciones?materia_id=${materiaId}&anio_lectivo=${anio}`).then(r => r.json());
+            const res = await fetch(`/api/planificaciones?materia_id=${materiaId}&anio_lectivo=${anio}`, {
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            }).then(r => r.json());
             if (res && res.length > 0) {
                 this.fillForm(res[0]);
                 document.getElementById('pad-form-container').style.display = 'block';
@@ -779,7 +783,10 @@ export const PAD = {
             
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Auth.getToken()}`
+                },
                 body: JSON.stringify(planData)
             }).then(r => r.json());
             

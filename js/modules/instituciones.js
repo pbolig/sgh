@@ -1,7 +1,20 @@
+import { Auth } from './auth.js';
+
 export const Instituciones = {
     async list() {
         try {
-            const res = await fetch('/api/instituciones');
+            const token = Auth.getToken();
+            if (!token) {
+                console.warn('Instituciones.list(): No hay token disponible.');
+                return [];
+            }
+            const res = await fetch('/api/instituciones', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.status === 401) {
+                Auth.logout();
+                return [];
+            }
             return await res.json();
         } catch (error) {
             console.error('Error listando instituciones:', error);
@@ -15,7 +28,10 @@ export const Instituciones = {
         try {
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${Auth.getToken()}`
+                },
                 body: JSON.stringify(inst)
             });
             return await res.json();
@@ -27,8 +43,11 @@ export const Instituciones = {
 
     async delete(id) {
         try {
-            await fetch(`/api/instituciones/${id}`, { method: 'DELETE' });
-            return { success: True };
+            await fetch(`/api/instituciones/${id}`, { 
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            });
+            return { success: true };
         } catch (error) {
             return { error };
         }

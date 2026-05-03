@@ -60,14 +60,36 @@ export const Auth = {
         sessionStorage.clear();
         window.location.reload();
     },
+    init: async () => {
+        const token = Auth.getToken();
+        if (!token) return false;
+        try {
+            const response = await fetch('/api/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data && data.username) {
+                    sessionStorage.setItem('user', JSON.stringify(data));
+                    return true;
+                }
+            }
+            // Si el token falló o la respuesta es mala, limparemos pero devolvemos false para que app.js maneje el logout
+            return false;
+        } catch (e) {
+            console.error('Error validating session:', e);
+            return false;
+        }
+    },
     isLoggedIn: () => {
         return !!sessionStorage.getItem('jwt');
     },
     getUser: () => {
         const userStr = sessionStorage.getItem('user');
-        if (!userStr || userStr === 'undefined') return null;
+        if (!userStr || userStr === 'undefined' || userStr === 'null') return null;
         try {
-            return JSON.parse(userStr);
+            const user = JSON.parse(userStr);
+            return (user && user.username) ? user : null;
         } catch (e) {
             console.error('Error parsing user from session:', e);
             return null;
@@ -75,7 +97,9 @@ export const Auth = {
     },
     getToken: () => {
         const token = sessionStorage.getItem('jwt');
-        if (!token) console.warn('DEBUG AUTH: getToken() retornó null');
+        if (!token || token === 'null' || token === 'undefined') {
+            return null;
+        }
         return token;
     },
     // Método para centralizar el manejo de errores de respuesta

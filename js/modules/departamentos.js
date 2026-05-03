@@ -4,15 +4,31 @@ import { Auth } from './auth.js';
 export const Departamentos = {
     list: async (institucionId = null) => {
         try {
-            let url = '/api/departamentos';
-            if (institucionId) url += `?institucion_id=${institucionId}`;
-            const response = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${Auth.getToken()}`
-                }
-            });
-            if (!response.ok) throw new Error('Error al obtener departamentos / carreras');
-            return await response.json();
+            const authHeader = { 'Authorization': `Bearer ${Auth.getToken()}` };
+            
+            // Llamadas paralelas para máxima eficiencia
+            let deptoUrl = '/api/departamentos';
+            let carreraUrl = '/api/carreras';
+            if (institucionId && institucionId !== 'null' && institucionId !== 'undefined') {
+                deptoUrl += `?institucion_id=${institucionId}`;
+                carreraUrl += `?institucion_id=${institucionId}`;
+            }
+
+            const [deptoRes, carreraRes] = await Promise.all([
+                fetch(deptoUrl, { headers: authHeader }),
+                fetch(carreraUrl, { headers: authHeader })
+            ]);
+
+            const deptosData = deptoRes.ok ? await deptoRes.json() : [];
+            const carrerasData = carreraRes.ok ? await carreraRes.json() : [];
+
+            // Unificar con metadatos y iconos
+            const unified = [
+                ...deptosData.map(d => ({ ...d, tipo: 'depto', icono: '🏛️', u_id: `depto:${d.id}` })),
+                ...carrerasData.map(c => ({ ...c, tipo: 'carrera', icono: '🎓', u_id: `carrera:${c.id}` }))
+            ];
+
+            return unified.sort((a, b) => a.nombre.localeCompare(b.nombre));
         } catch (error) {
             console.error(error);
             return [];

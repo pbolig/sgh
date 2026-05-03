@@ -48,17 +48,20 @@ export const Calendario = {
             
             // Procesar Workload (conteo de clases por día de la semana)
             this.db.workload = {};
-            const dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
-            asigs.forEach(as => {
-                const dia = as.dia_semana || 'lunes';
-                this.db.workload[dia] = (this.db.workload[dia] || 0) + 1;
-            });
+            if (Array.isArray(asigs)) {
+                asigs.forEach(as => {
+                    const dia = (as.dia_semana || 'lunes').toLowerCase();
+                    this.db.workload[dia] = (this.db.workload[dia] || 0) + 1;
+                });
+            }
 
             this.db.events = {};
-            evts.forEach(e => {
-                if (!this.db.events[e.fecha]) this.db.events[e.fecha] = [];
-                this.db.events[e.fecha].push(e);
-            });
+            if (Array.isArray(evts)) {
+                evts.forEach(e => {
+                    if (!this.db.events[e.fecha]) this.db.events[e.fecha] = [];
+                    this.db.events[e.fecha].push(e);
+                });
+            }
         } catch (error) {
             console.error("Error cargando datos del calendario:", error);
         }

@@ -17,7 +17,15 @@ export const CargoAsignaciones = {
             });
             if (!response.ok) throw new Error('Error al obtener asignaciones');
             let data = await response.json();
-            if (deptoId) data = data.filter(a => a.departamento_id == deptoId);
+            if (deptoId && deptoId !== 'null' && deptoId !== 'undefined') {
+                const [uType, uIdRaw] = deptoId.toString().includes(':') ? deptoId.split(':') : ['depto', deptoId];
+                const uId = uIdRaw ? parseInt(uIdRaw) : null;
+                if (uType === 'depto') {
+                    data = data.filter(a => a.departamento_id == uId);
+                } else if (uType === 'carrera') {
+                    data = data.filter(a => a.carrera_id == uId);
+                }
+            }
             return data;
         } catch (error) {
             console.error(error);
@@ -75,6 +83,7 @@ export const CargoAsignaciones = {
             Departamentos.list(instId),
             Cargos.list(deptoId)
         ]);
+        console.log('DEBUG CARGO ASIGNACIONES: docentes cargados:', docentes.length);
         
         container.innerHTML = `
             <div class="view-header module-header">
@@ -141,17 +150,34 @@ export const CargoAsignaciones = {
         };
     },
 
-    showForm: async (asig = null, docentes = [], deptos = [], cargos = [], deptoId = null, preFill = null) => {
+    showForm: async (asig = null, docentes = [], deptos = [], cargos = [], deptoId = null, preFill = null, onSuccess = null) => {
         const isEdit = !!asig;
         
-        // Cargar aulas y comisiones del departamento para el selector
+        // Parsear ID unificado
+        const [uType, uIdRaw] = (deptoId || "").includes(':') ? deptoId.split(':') : ['depto', deptoId];
+        const uId = uIdRaw ? parseInt(uIdRaw) : null;
+        const dId = asig?.departamento_id || (uType === 'depto' ? uId : null);
+        const cId = asig?.carrera_id || (uType === 'carrera' ? uId : null);
+
+        // Cargar aulas y comisiones de la unidad seleccionada
+        let aulas = [];
+        let comisiones = [];
         const authHeader = { 'Authorization': `Bearer ${Auth.getToken()}` };
-        const dId = asig?.departamento_id || deptoId;
-        const [aulasRes, comisiones] = await Promise.all([
-            Auth.handleResponse(await fetch(`/api/aulas?departamento_id=${dId}`, { headers: authHeader })),
-            Comisiones.list(dId)
-        ]);
-        const aulas = (aulasRes && aulasRes.ok) ? await aulasRes.json() : [];
+        
+        try {
+            const finalId = cId || dId;
+            if (finalId && finalId !== 'null' && finalId !== 'undefined') {
+                const paramName = cId ? 'carrera_id' : 'departamento_id';
+                const [aulasRes, comsData] = await Promise.all([
+                    fetch(`/api/aulas?${paramName}=${finalId}`, { headers: authHeader }).then(r => r.ok ? r.json() : []),
+                    Comisiones.list(dId, null, null, cId)
+                ]);
+                aulas = aulasRes;
+                comisiones = comsData;
+            }
+        } catch (err) {
+            console.error('Error cargando aulas/comisiones para el formulario:', err);
+        }
 
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -173,7 +199,8 @@ export const CargoAsignaciones = {
                 horas: 0.67,
                 aula_id: preFill.aulaId,
                 comision_id: preFill.comisionId,
-                modulo_id: preFill.moduloId
+                modulo_id: preFill.moduloId,
+                readonly_inicio: !!preFill.hora_inicio
             });
         }
 
@@ -190,12 +217,15 @@ export const CargoAsignaciones = {
                         <div class="form-row">
                             <div class="form-group col">
                                 <label>Docente / Persona:</label>
-                                <select name="docente_id" required>
-                                    <option value="">-- Seleccione --</option>
-                                    ${docentes.sort((a,b) => a.apellido.localeCompare(b.apellido)).map(d => 
-                                        `<option value="${d.id}" ${d.id === asig?.docente_id ? 'selected' : ''}>${d.apellido}, ${d.nombre}</option>`
-                                    ).join('')}
-                                </select>
+                                <div class="select-with-bypass">
+                                    <select name="docente_id" required id="select-docente-asig">
+                                        <option value="">-- Seleccione --</option>
+                                        ${docentes.sort((a,b) => (a.apellido || '').localeCompare(b.apellido || '')).map(d => 
+                                            `<option value="${d.id}" ${d.id === asig?.docente_id ? 'selected' : ''}>${(d.apellido || 'S/A').toUpperCase()}, ${d.nombre || ''}</option>`
+                                        ).join('')}
+                                    </select>
+                                    <button type="button" class="btn-text-small" id="btn-show-all-docentes" title="Cargar todo el personal del sistema">🔍 Ver Todos</button>
+                                </div>
                             </div>
                         </div>
 
@@ -253,7 +283,7 @@ export const CargoAsignaciones = {
                                                 </select>
                                             </td>
                                             <td><input type="number" class="slot-cant" data-idx="${idx}" value="${s.cantidad || 1}" min="1" step="1" style="width:45px"></td>
-                                            <td><input type="time" class="slot-inicio" data-idx="${idx}" value="${s.hora_inicio || '08:00'}" required></td>
+                                            <td><input type="time" class="slot-inicio" data-idx="${idx}" value="${s.hora_inicio || '08:00'}" required ${s.readonly_inicio ? 'readonly style="background: rgba(255,255,255,0.05); pointer-events: none;" title="No modificable desde la grilla"' : ''}></td>
                                             <td><input type="time" class="slot-fin" data-idx="${idx}" value="${s.hora_fin}" readonly style="opacity: 0.7; background: rgba(255,255,255,0.05); width:65px"></td>
                                             <td>
                                                 <select class="slot-aula" data-idx="${idx}" style="width: 100px;">
@@ -262,7 +292,7 @@ export const CargoAsignaciones = {
                                                 </select>
                                             </td>
                                             <td>
-                                                <select class="slot-comision" data-idx="${idx}">
+                                                <select class="slot-comision" data-idx="${idx}" ${(!s.tipo || s.tipo === 'cátedra') ? 'required' : ''}>
                                                     <option value="">Ninguna (Libre)</option>
                                                     ${comisiones.map(c => `<option value="${c.id}" ${s.comision_id === c.id ? 'selected' : ''}>${c.codigo} - ${c.materia?.nombre || ''}</option>`).join('')}
                                                 </select>
@@ -343,7 +373,15 @@ export const CargoAsignaciones = {
                     const val = e.target.value;
                     
                     if (e.target.classList.contains('slot-dia')) slots[idx].dia_semana = val;
-                    if (e.target.classList.contains('slot-tipo')) slots[idx].tipo = val;
+                    if (e.target.classList.contains('slot-tipo')) {
+                        slots[idx].tipo = val;
+                        const comisionSelect = e.target.closest('tr').querySelector('.slot-comision');
+                        if (val === 'cátedra') {
+                            comisionSelect.setAttribute('required', 'required');
+                        } else {
+                            comisionSelect.removeAttribute('required');
+                        }
+                    }
                     if (e.target.classList.contains('slot-cant')) slots[idx].cantidad = parseInt(val);
                     if (e.target.classList.contains('slot-inicio')) slots[idx].hora_inicio = val;
                     
@@ -360,6 +398,29 @@ export const CargoAsignaciones = {
             const close = () => modal.remove();
             modal.querySelector('#btn-close-modal').onclick = close;
             modal.querySelector('#btn-close-modal-x').onclick = close;
+
+            // Lógica para el bypass "Ver Todos"
+            const btnShowAll = modal.querySelector('#btn-show-all-docentes');
+            if (btnShowAll) {
+                btnShowAll.onclick = async () => {
+                    btnShowAll.disabled = true;
+                    btnShowAll.textContent = 'Cargando...';
+                    try {
+                        const allDocentes = await Docentes.list(''); // Sin filtro
+                        console.log('DEBUG BYPASS: Cargados todos los docentes:', allDocentes.length);
+                        const sel = modal.querySelector('#select-docente-asig');
+                        const currentVal = sel.value;
+                        sel.innerHTML = '<option value="">-- Seleccione (Lista Completa) --</option>' + 
+                            allDocentes.sort((a,b) => (a.apellido || '').localeCompare(b.apellido || '')).map(d => 
+                                `<option value="${d.id}" ${currentVal == d.id ? 'selected' : ''}>${(d.apellido || 'S/A').toUpperCase()}, ${d.nombre || ''}</option>`
+                            ).join('');
+                        btnShowAll.textContent = '✅ Todo el personal';
+                    } catch (e) {
+                        btnShowAll.textContent = '❌ Error';
+                        btnShowAll.disabled = false;
+                    }
+                };
+            }
             
             modal.querySelector('#asig-form').onsubmit = async (e) => {
                 e.preventDefault();
@@ -368,7 +429,11 @@ export const CargoAsignaciones = {
                 
                 data.docente_id = data.docente_id ? parseInt(data.docente_id) : null;
                 data.cargo_id = data.cargo_id ? parseInt(data.cargo_id) : null;
-                data.departamento_id = parseInt(data.departamento_id);
+                
+                // Asegurar guardado en la columna correcta
+                const [uTypeFinal, uIdRawFinal] = deptoId.includes(':') ? deptoId.split(':') : ['depto', deptoId];
+                data.departamento_id = uTypeFinal === 'depto' ? parseInt(uIdRawFinal) : null;
+                data.carrera_id = uTypeFinal === 'carrera' ? parseInt(uIdRawFinal) : null;
                 const finalSlots = slots.map((s, idx) => {
                     const row = document.querySelector(`.slot-dia[data-idx="${idx}"]`).closest('tr');
                     const aulaId = row.querySelector('.slot-aula').value;
@@ -391,7 +456,11 @@ export const CargoAsignaciones = {
                 const res = await CargoAsignaciones.save(data);
                 if (res.success) { 
                     modal.remove(); 
-                    CargoAsignaciones.render('view-container'); 
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        CargoAsignaciones.render('view-container'); 
+                    }
                 } else alert(res.error);
             };
         };

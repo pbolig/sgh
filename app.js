@@ -1,21 +1,22 @@
 // app.js - Lógica principal
-import { Auth } from './js/modules/auth.js';
-import { Departamentos } from './js/modules/departamentos.js';
-import { Docentes } from './js/modules/docentes.js';
-import { Materias } from './js/modules/materias.js';
-import { Aulas } from './js/modules/aulas.js';
-import { Comisiones } from './js/modules/comisiones.js';
-import { Editor } from './js/modules/editor.js';
-import { Dashboard } from './js/modules/dashboard.js';
-import { Reportes } from './js/modules/reportes.js';
-import { Cargos } from './js/modules/cargos.js';
-import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js';
-import { Calendario } from './js/modules/calendario.js?v=2';
-import { PAD } from './js/modules/pad.js';
-import { Instituciones } from './js/modules/instituciones.js';
-import { Permisos } from './js/modules/permisos.js';
-import { Usuarios } from './js/modules/usuarios.js';
-import { UI } from './js/utils/ui.js';
+import { Auth } from './js/modules/auth.js?v=2.6.4';
+import { Departamentos } from './js/modules/departamentos.js?v=2.6.4';
+import { Docentes } from './js/modules/docentes.js?v=2.6.4';
+import { Materias } from './js/modules/materias.js?v=2.6.4';
+import { Aulas } from './js/modules/aulas.js?v=2.6.4';
+import { Comisiones } from './js/modules/comisiones.js?v=2.6.4';
+import { Editor } from './js/modules/editor.js?v=2.6.4';
+import { Dashboard } from './js/modules/dashboard.js?v=2.6.4';
+import { Reportes } from './js/modules/reportes.js?v=2.6.4';
+import { Cargos } from './js/modules/cargos.js?v=2.6.4';
+import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js?v=2.6.4';
+import { Calendario } from './js/modules/calendario.js?v=2.6.4';
+import { PAD } from './js/modules/pad.js?v=2.6.4';
+import { Instituciones } from './js/modules/instituciones.js?v=2.6.4';
+import { Permisos } from './js/modules/permisos.js?v=2.6.4';
+import { Usuarios } from './js/modules/usuarios.js?v=2.6.4';
+import { Comunicaciones } from './js/modules/comunicaciones.js?v=2.6.4';
+import { UI } from './js/utils/ui.js?v=2.6.4';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Inicializar UI y Interceptor Global
@@ -24,9 +25,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inicializar temporizador de inactividad
     Auth.setupInactivityTimer();
     
-    // Verificar si ya está logueado
+    // Verificar si ya está logueado y validar sesión
     if (Auth.isLoggedIn()) {
-        showMainScreen();
+        Auth.init().then(valid => {
+            if (valid) {
+                showMainScreen();
+            } else {
+                Auth.logout();
+            }
+        }).catch(() => {
+            Auth.logout();
+        });
     }
 
     const loginForm = document.getElementById('login-form');
@@ -180,12 +189,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const deptos = await Departamentos.list(instId);
-        selector.innerHTML = '<option value="">Todos los Departamentos / Carreras</option>' + 
-            deptos.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('');
+        selector.innerHTML = '<option value="">🏛️/🎓 Todos los Deptos / Carreras</option>' + 
+            deptos.map(d => `<option value="${d.u_id}">${d.icono} ${d.nombre}</option>`).join('');
             
         // Restaurar selección previa
-        const saved = localStorage.getItem('selected-dept-id');
-        if (saved && deptos.find(d => d.id == saved)) {
+        const saved = localStorage.getItem('selected-dept-id'); // Ahora es tipo:id
+        if (saved && deptos.find(d => d.u_id == saved)) {
             selector.value = saved;
         }
 
@@ -340,6 +349,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
             case 'usuarios':
                 await Usuarios.render('view-container');
+                break;
+            case 'comunicaciones':
+                await Comunicaciones.render('view-container');
                 break;
             default:
                 // Limpiar timers de dashboard si cambiamos a otra vista

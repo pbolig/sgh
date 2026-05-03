@@ -37,13 +37,16 @@ class Modulo(Base):
 class TurnoConfig(Base):
     __tablename__ = "config_turnos"
     id = Column(Integer, primary_key=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
-    turno = Column(String)     # maana, tarde, noche
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True)
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), nullable=True)
+    turno = Column(String)     # mañana, tarde, noche
     dia_semana = Column(String) # lunes, martes...
     hora_inicio = Column(String) # ej: "07:45"
+    desfase = Column(Integer, default=0) # margen de inicio en minutos
     secuencia = Column(JSON)    # List of {"type": "mod", "num": 1} or {"type": "rec", "dur": 10}
 
     departamento = relationship("Departamento")
+    carrera = relationship("Carrera")
 
 class Permiso(Base):
     __tablename__ = "permisos"
@@ -69,6 +72,7 @@ class Usuario(Base):
     
     institucion = relationship("Institucion")
     rol_obj = relationship("Rol")
+    email = Column(String, nullable=True) # Para notificaciones generales
 
 class Departamento(Base):
     __tablename__ = "departamentos"
@@ -98,6 +102,46 @@ class DocenteDepartamento(Base):
     docente_id = Column(Integer, ForeignKey("docentes.id", ondelete="CASCADE"), primary_key=True)
     departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), primary_key=True)
 
+class DocenteCarrera(Base):
+    __tablename__ = "docente_carrera"
+    docente_id = Column(Integer, ForeignKey("docentes.id", ondelete="CASCADE"), primary_key=True)
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), primary_key=True)
+
+class Carrera(Base):
+    __tablename__ = "carreras"
+    id = Column(Integer, primary_key=True, index=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"))
+    nombre = Column(String, index=True)
+    codigo = Column(String, unique=True, index=True)
+    descripcion = Column(Text, nullable=True)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    institucion = relationship("Institucion")
+    materias = relationship("Materia", back_populates="carrera")
+    estudiantes = relationship("Estudiante", back_populates="carrera")
+    recreos_excluidos = relationship("RecreoExcluido", back_populates="carrera", cascade="all, delete-orphan")
+    calendarios = relationship("Calendario", back_populates="carrera", cascade="all, delete-orphan")
+
+class Estudiante(Base):
+    __tablename__ = "estudiantes"
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="CASCADE"))
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"))
+    legajo = Column(String, unique=True, index=True)
+    nombre = Column(String, index=True)
+    apellido = Column(String, index=True)
+    email = Column(String, nullable=True)
+    telefono = Column(String, nullable=True)
+    anio_cursada = Column(Integer, default=1)
+    comision_id = Column(Integer, ForeignKey("comisiones.id"), nullable=True)
+    activo = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    usuario = relationship("Usuario")
+    carrera = relationship("Carrera", back_populates="estudiantes")
+    comision = relationship("Comision")
+
 class AulaDepartamento(Base):
     __tablename__ = "aula_departamento"
     aula_id = Column(Integer, ForeignKey("aulas.id", ondelete="CASCADE"), primary_key=True)
@@ -106,6 +150,7 @@ class AulaDepartamento(Base):
 class Docente(Base):
     __tablename__ = "docentes"
     id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id", ondelete="SET NULL"), nullable=True)
     institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), nullable=True) # Legacy, migrar a M2M
     apellido = Column(String, index=True)
     nombre = Column(String, index=True)
@@ -119,7 +164,9 @@ class Docente(Base):
 
     instituciones = relationship("Institucion", secondary="docente_institucion")
     departamentos = relationship("Departamento", secondary="docente_departamento")
+    carreras = relationship("Carrera", secondary="docente_carrera")
     cargos_asignados = relationship("CargoAsignacion", back_populates="docente")
+    usuario = relationship("Usuario")
 
 class Materia(Base):
     __tablename__ = "materias"
@@ -127,7 +174,8 @@ class Materia(Base):
     nombre = Column(String, index=True)
     codigo = Column(String, index=True)
     codigo_interno = Column(String, nullable=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True)
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), nullable=True)
     anio = Column(Integer, default=1) # Año/Nivel de la carrera
     carga_horaria_modulos = Column(Integer, default=0) # Módulos de 40 min
     correlativas = Column(Text, nullable=True) # JSON array de códigos internos
@@ -135,6 +183,7 @@ class Materia(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     departamento = relationship("Departamento", back_populates="materias")
+    carrera = relationship("Carrera", back_populates="materias")
     comisiones = relationship("Comision", back_populates="materia")
 
 class Aula(Base):
@@ -178,6 +227,8 @@ class Asignacion(Base):
     aula_id = Column(Integer, ForeignKey("aulas.id"))
     modulo_id = Column(Integer, ForeignKey("modulos_horario.id"))
     dia_semana = Column(String)
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True)
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), nullable=True)
     comision_id = Column(Integer, ForeignKey("comisiones.id"), nullable=True)
     docente_id = Column(Integer, ForeignKey("docentes.id"), nullable=True)
     observaciones = Column(Text, nullable=True)
@@ -189,16 +240,68 @@ class Asignacion(Base):
     departamento = relationship("Departamento", back_populates="asignaciones")
     docente = relationship("Docente")
     modulo = relationship("ModuloHorario")
+    carrera = relationship("Carrera")
 
 class RecreoExcluido(Base):
     __tablename__ = "recreos_excluidos"
     id = Column(Integer, primary_key=True, index=True)
-    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"))
+    departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True)
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), nullable=True)
     dia_semana = Column(String) # 'lunes', 'martes', etc.
     modulo_id_anterior = Column(Integer, ForeignKey("modulos_horario.id")) # El módulo tras el cual viene el recreo
 
-    departamento = relationship("Departamento")
+    departamento = relationship("Departamento", back_populates="recreos_excluidos")
+    carrera = relationship("Carrera", back_populates="recreos_excluidos")
     modulo_anterior = relationship("ModuloHorario")
+
+# --- MODELOS DE COMUNICACIÓN Y CONFIGURACIÓN ---
+
+class ConfiguracionSistema(Base):
+    __tablename__ = "configuraciones_sistema"
+    id = Column(Integer, primary_key=True, index=True)
+    entorno = Column(String(50), nullable=False) # 'test' o 'prod'
+    servicio = Column(String(50), nullable=False) # 'email_smtp' o 'whatsapp_api'
+    config = Column(JSON, nullable=False) # las configuraciones como json
+    activo = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class Comunicacion(Base):
+    __tablename__ = "comunicaciones"
+    id = Column(Integer, primary_key=True, index=True)
+    remitente_id = Column(Integer, ForeignKey("usuarios.id"))
+    destinatario_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)          # Para tickets a usuarios
+    destinatario_docente_id = Column(Integer, ForeignKey("docentes.id"), nullable=True)  # Para tickets a docentes sin cuenta
+    tipo = Column(String) # "anuncio" o "ticket"
+    asunto = Column(String)
+    categoria = Column(String, nullable=True)
+    estado = Column(String, default="abierto")
+    prioridad = Column(String, default="normal")
+    
+    # Filtros de audiencia (para anuncios) - Almacenados como JSON
+    filtro_audiencia = Column(JSON, nullable=True) 
+    
+    # Estado de la notificación (Mails y WA enviados o fallidos)
+    estado_notificacion = Column(JSON, nullable=True)
+    
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+    remitente = relationship("Usuario", foreign_keys=[remitente_id])
+    destinatario = relationship("Usuario", foreign_keys=[destinatario_id])
+    destinatario_docente = relationship("Docente", foreign_keys=[destinatario_docente_id])
+    mensajes = relationship("ComunicacionMensaje", back_populates="comunicacion", cascade="all, delete-orphan")
+
+class ComunicacionMensaje(Base):
+    __tablename__ = "comunicacion_mensajes"
+    id = Column(Integer, primary_key=True, index=True)
+    comunicacion_id = Column(Integer, ForeignKey("comunicaciones.id", ondelete="CASCADE"))
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"))
+    texto = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    comunicacion = relationship("Comunicacion", back_populates="mensajes")
+    usuario = relationship("Usuario")
 
 class Cargo(Base):
     __tablename__ = "cargos"
@@ -268,9 +371,13 @@ class Calendario(Base):
     __tablename__ = "calendarios"
     id = Column(Integer, primary_key=True, index=True)
     departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True)
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), nullable=True)
     nombre = Column(String, index=True)
     descripcion = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    departamento = relationship("Departamento")
+    carrera = relationship("Carrera", back_populates="calendarios")
 
 class CalendarioCategoria(Base):
     __tablename__ = "calendario_categorias"
@@ -284,6 +391,7 @@ class CalendarioEvento(Base):
     id = Column(Integer, primary_key=True, index=True)
     calendario_id = Column(Integer, ForeignKey("calendarios.id"))
     departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True) # NULL = Institucional
+    carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), nullable=True)
     fecha = Column(String, index=True) # Formato YYYY-MM-DD
     categoria_id = Column(Integer, ForeignKey("calendario_categorias.id"))
     descripcion = Column(Text, nullable=True)
@@ -292,6 +400,7 @@ class CalendarioEvento(Base):
 
     categoria = relationship("CalendarioCategoria")
     departamento = relationship("Departamento")
+    carrera = relationship("Carrera")
 
 class NotaAdhesiva(Base):
     __tablename__ = "notas_adhesivas"

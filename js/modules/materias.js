@@ -4,12 +4,13 @@ import { Departamentos } from './departamentos.js';
 import { Instituciones } from './instituciones.js';
 
 export const Materias = {
-    list: async (deptoId = null, instId = null) => {
+    list: async (deptoId = null, instId = null, carreraId = null) => {
         try {
             let url = '/api/materias';
             const params = new URLSearchParams();
-            if (deptoId) params.append('departamento_id', deptoId);
-            if (instId) params.append('institucion_id', instId);
+            if (deptoId && deptoId !== 'null' && deptoId !== 'undefined') params.append('departamento_id', deptoId);
+            if (instId && instId !== 'null' && instId !== 'undefined') params.append('institucion_id', instId);
+            if (carreraId && carreraId !== 'null' && carreraId !== 'undefined') params.append('carrera_id', carreraId);
             if (params.toString()) url += '?' + params.toString();
             const response = await fetch(url, {
                 headers: {
@@ -65,18 +66,21 @@ export const Materias = {
     },
 
     render: async (containerId) => {
-        const deptoId = document.getElementById('dept-selector')?.value;
+        const uDeptoId = document.getElementById('dept-selector')?.value;
+        const [uType, uIdRaw] = uDeptoId && uDeptoId.includes(':') ? uDeptoId.split(':') : ['depto', uDeptoId];
+        const uId = uIdRaw ? parseInt(uIdRaw) : null;
+
         const instId = document.getElementById('inst-selector')?.value;
         const container = document.getElementById(containerId);
         
         let [materias, deptos, instituciones] = await Promise.all([
-            Materias.list(deptoId, instId), 
+            Materias.list(uType === 'depto' ? uId : null, instId, uType === 'carrera' ? uId : null), 
             Departamentos.list(instId),
             Instituciones.list()
         ]);
 
         const currentInst = instituciones.find(i => i.id == instId);
-        const currentDepto = deptos.find(d => d.id == deptoId);
+        const currentDepto = deptos.find(d => d.u_id == uDeptoId);
         
         // Ordenar por Año (1°, 2°, 3°...) y luego Nombre Alfabéticamente
         materias.sort((a, b) => {

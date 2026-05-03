@@ -5,10 +5,16 @@ import { Departamentos } from './departamentos.js';
 import { Reemplazos } from './reemplazos.js';
 
 export const Docentes = {
-    list: async (institucionId = null) => {
+    list: async (institucionId = null, deptoId = null, carreraId = null) => {
         try {
             let url = '/api/docentes';
-            if (institucionId) url += `?institucion_id=${institucionId}`;
+            const params = new URLSearchParams();
+            if (institucionId && institucionId !== 'null' && institucionId !== 'undefined') params.append('institucion_id', institucionId);
+            if (deptoId && deptoId !== 'null' && deptoId !== 'undefined') params.append('departamento_id', deptoId);
+            if (carreraId && carreraId !== 'null' && carreraId !== 'undefined') params.append('carrera_id', carreraId);
+            
+            if (params.toString()) url += '?' + params.toString();
+
             const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${Auth.getToken()}`
@@ -94,9 +100,10 @@ export const Docentes = {
                             <td><strong>${d.apellido}</strong></td>
                             <td>${d.nombre || '-'}</td>
                             <td>
-                                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
-                                    ${d.instituciones.map(i => `<span class="badge-inst" title="Institución">${i.nombre}</span>`).join('')}
-                                    ${d.departamentos.map(dept => `<span class="badge-dept" title="Carrera">${dept.nombre}</span>`).join('')}
+                                <div class="asig-cell">
+                                    ${d.instituciones.map(i => `<span class="badge-inst" title="Institución">🏛️ ${i.nombre}</span>`).join('')}
+                                    ${d.departamentos.map(dept => `<span class="badge-dept" title="Departamento">📋 ${dept.nombre}</span>`).join('')}
+                                    ${d.carreras ? d.carreras.map(c => `<span class="badge-dept" title="Carrera" style="background:rgba(100,100,255,0.15);color:#a5b4fc;border-color:rgba(100,100,255,0.3);">🎓 ${c.nombre}</span>`).join('') : ''}
                                 </div>
                             </td>
                             <td>${d.email || '-'}</td>
@@ -142,13 +149,12 @@ export const Docentes = {
         console.log('Showing Docente form', docente);
         const isEdit = !!docente;
         const allInstituciones = await Instituciones.list();
+        const allUnidades = await Departamentos.list();
         
-        // Cargar todos los departamentos de todas las instituciones (para el mapeo)
-        // Optimizamos cargando solo los necesarios o todos si no son muchos
-        const allDeptos = await Promise.all(allInstituciones.map(i => Departamentos.list(i.id)));
-        const deptosByInst = {};
-        allInstituciones.forEach((inst, idx) => {
-            deptosByInst[inst.id] = allDeptos[idx];
+        const unidByInst = {};
+        allInstituciones.forEach(inst => unidByInst[inst.id] = []);
+        allUnidades.forEach(u => {
+            if (unidByInst[u.institucion_id]) unidByInst[u.institucion_id].push(u);
         });
 
         const modal = document.createElement('div');
@@ -213,12 +219,13 @@ export const Docentes = {
                                         <label for="inst-${inst.id}"><strong>${inst.nombre}</strong></label>
                                     </div>
                                     <div class="dept-m2m-list ${docente?.instituciones?.some(i => i.id === inst.id) ? '' : 'disabled'}">
-                                        ${deptosByInst[inst.id].map(dept => `
+                                        ${unidByInst[inst.id].map(u => `
                                             <div class="dept-check-item">
-                                                <input type="checkbox" class="dept-check" name="dept_ids" value="${dept.id}" 
-                                                    id="dept-${dept.id}" data-inst="${inst.id}"
-                                                    ${docente?.departamentos?.some(d => d.id === dept.id) ? 'checked' : ''}>
-                                                <label for="dept-${dept.id}">${dept.nombre}</label>
+                                                <input type="checkbox" class="unit-check" data-tipo="${u.tipo}" value="${u.id}" 
+                                                    id="unit-${u.tipo}-${u.id}" data-inst="${inst.id}"
+                                                    ${(u.tipo === 'depto' && docente?.departamentos?.some(d => d.id === u.id)) || 
+                                                      (u.tipo === 'carrera' && docente?.carreras?.some(c => c.id === u.id)) ? 'checked' : ''}>
+                                                <label for="unit-${u.tipo}-${u.id}">${u.icono} ${u.nombre}</label>
                                             </div>
                                         `).join('')}
                                     </div>
@@ -255,16 +262,17 @@ export const Docentes = {
         document.getElementById('btn-close-modal').onclick = close;
         document.getElementById('btn-close-modal-x').onclick = close;
 
-        document.getElementById('docente-form').onsubmit = async (e) => {
+        const form = document.getElementById('docente-form');
+        form.onsubmit = async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
+            const formData = new FormData(form);
             const data = Object.fromEntries(formData.entries());
             
-            // Recolectar IDs de la UI M2M
-            data.institucion_ids = Array.from(modal.querySelectorAll('.inst-check:checked')).map(i => parseInt(i.value));
-            data.departamento_id_list = Array.from(modal.querySelectorAll('.dept-check:checked')).map(i => parseInt(i.value)); // name conflict fix
-            data.departamento_ids = data.departamento_id_list;
-            data.es_temporal = data.es_temporal === "true";
+            // Recolectar M2M manualmente
+            data.institucion_ids = Array.from(modal.querySelectorAll('.inst-check:checked')).map(c => parseInt(c.value));
+            data.departamento_ids = Array.from(modal.querySelectorAll('.unit-check[data-tipo="depto"]:checked')).map(c => parseInt(c.value));
+            data.carrera_ids = Array.from(modal.querySelectorAll('.unit-check[data-tipo="carrera"]:checked')).map(c => parseInt(c.value));
+            data.es_temporal = data.es_temporal === 'true';
             
             if (!data.id) delete data.id;
             

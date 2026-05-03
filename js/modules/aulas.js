@@ -7,8 +7,8 @@ export const Aulas = {
         try {
             let url = '/api/aulas';
             const params = new URLSearchParams();
-            if (institucionId) params.append('institucion_id', institucionId);
-            if (departamentoId) params.append('departamento_id', departamentoId);
+            if (institucionId && institucionId !== 'null' && institucionId !== 'undefined') params.append('institucion_id', institucionId);
+            if (departamentoId && departamentoId !== 'null' && departamentoId !== 'undefined') params.append('departamento_id', departamentoId);
             if (params.toString()) url += '?' + params.toString();
 
             const response = await fetch(url, {

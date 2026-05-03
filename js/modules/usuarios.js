@@ -103,11 +103,11 @@ export const Usuarios = {
             </table>
         `;
 
-        document.getElementById('btn-add-user').onclick = () => Usuarios.showForm(null, roles);
+        document.getElementById('btn-add-user').onclick = () => Usuarios.showForm(null, roles, instId);
 
         window.editUser = (id) => {
             const user = usuarios.find(u => u.id === id);
-            Usuarios.showForm(user, roles);
+            Usuarios.showForm(user, roles, instId);
         };
 
         window.deleteUser = async (id) => {
@@ -122,7 +122,7 @@ export const Usuarios = {
         };
     },
 
-    showForm: (user = null, roles = []) => {
+    showForm: (user = null, roles = [], currentInstId = null) => {
         const isEdit = !!user;
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -141,6 +141,31 @@ export const Usuarios = {
                         <label>${isEdit ? 'Nueva ' : ''}Contraseña:</label>
                         <input type="password" name="password" ${isEdit ? '' : 'required'} placeholder="${isEdit ? 'Dejar en blanco para no cambiar' : ''}">
                     </div>
+
+                    <div class="form-group">
+                        <label>Email:</label>
+                        <input type="email" name="email" value="${user?.email || ''}" placeholder="correo@ejemplo.com">
+                    </div>
+
+                    ${!isEdit ? `
+                    <div class="form-section-divider">Datos Personales (Opcional)</div>
+                    <div class="form-row">
+                        <div class="form-group col">
+                            <label>Apellido:</label>
+                            <input type="text" name="apellido" placeholder="Apellido">
+                        </div>
+                        <div class="form-group col">
+                            <label>Nombre:</label>
+                            <input type="text" name="nombre" placeholder="Nombre">
+                        </div>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" name="crear_perfil" checked> 
+                            Crear automáticamente perfil de Docente/Trabajador
+                        </label>
+                    </div>
+                    ` : ''}
 
                     <div class="form-group">
                         <label>Rol Asignado:</label>
@@ -177,6 +202,13 @@ export const Usuarios = {
             // Ajustar tipos
             data.activo = parseInt(data.activo);
             if (data.rol_id) data.rol_id = parseInt(data.rol_id);
+            if (currentInstId) data.institucion_id = parseInt(currentInstId);
+            
+            // Si es nuevo, manejar checkbox de perfil
+            if (!isEdit) {
+                data.crear_perfil = !!formData.get('crear_perfil');
+            }
+
             if (!data.id) delete data.id;
             if (isEdit && !data.password) delete data.password;
 

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SGH - Sistema de Gestión de Horarios</title>
     <meta name="description" content="Sistema de Gestión de Horarios Institucionales con persistencia en Turso.">
-    <link rel="stylesheet" href="css/styles.css?v=2.3.0">
+    <link rel="stylesheet" href="css/styles.css?v=2.3.1">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700&display=swap" rel="stylesheet">
@@ -45,7 +45,7 @@
                     <button type="submit" class="btn-primary">Ingresar</button>
                     <div id="login-error" class="error-message hidden">Usuario o contraseña incorrectos</div>
                     <div class="login-footer-version" style="text-align: center; margin-top: 1.5rem; font-size: 0.75rem; opacity: 0.5; font-family: 'Inter', sans-serif;">
-                        <div style="margin-bottom: 2px;">V2.1.0</div>
+                        <div style="margin-bottom: 2px;">V2.5.6</div>
                         <div>202604131400</div>
                     </div>
                 </form>
@@ -62,6 +62,7 @@
                 <nav id="main-nav">
                     <ul>
                         <li class="active"><a href="#" data-route="dashboard">📊 <span>Dashboard</span></a></li>
+                        <li><a href="#" data-route="comunicaciones">💬 <span>Mensajes</span></a></li>
                         <li><a href="#" data-route="editor">🗓️ <span>Editor de Horarios</span></a></li>
                         <li><a href="#" data-route="docentes">👨‍🏫 <span>Docentes</span></a></li>
                         <li><a href="#" data-route="departamentos">🏛️ <span>Departamentos / Carreras</span></a></li>
@@ -112,8 +113,20 @@
         </div>
     </div>
 
+    <!-- Fail-safe para el Cargador -->
+    <script>
+        setTimeout(() => {
+            const loader = document.getElementById('global-loader');
+            if (loader && !loader.classList.contains('hidden')) {
+                console.warn('Fail-safe: El cargador se cerró por tiempo de espera (6s).');
+                loader.classList.add('hidden');
+                document.body.classList.remove('loading-active');
+            }
+        }, 6000);
+    </script>
+
     <!-- Scripts -->
     <script src="config.js"></script>
-    <script src="app.js?v=2.3.0" type="module"></script>
+    <script src="app.js?v=2.6.4" type="module"></script>
 </body>
 </html>

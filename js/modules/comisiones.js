@@ -3,13 +3,14 @@ import { Auth } from './auth.js';
 import { Materias } from './materias.js';
 
 export const Comisiones = {
-    list: async (deptoId = null, anio = null, instId = null) => {
+    list: async (deptoId = null, anio = null, instId = null, carreraId = null) => {
         try {
             let url = '/api/comisiones';
             const params = new URLSearchParams();
-            if (deptoId) params.append('departamento_id', deptoId);
-            if (anio) params.append('anio', anio);
-            if (instId) params.append('institucion_id', instId);
+            if (deptoId && deptoId !== 'null' && deptoId !== 'undefined') params.append('departamento_id', deptoId);
+            if (anio && anio !== 'null' && anio !== 'undefined') params.append('anio', anio);
+            if (instId && instId !== 'null' && instId !== 'undefined') params.append('institucion_id', instId);
+            if (carreraId && carreraId !== 'null' && carreraId !== 'undefined') params.append('carrera_id', carreraId);
             if (params.toString()) url += '?' + params.toString();
             const response = await fetch(url, {
                 headers: {
@@ -67,8 +68,11 @@ export const Comisiones = {
     },
 
     render: async (containerId) => {
-        const deptoId = document.getElementById('dept-selector')?.value;
-        const instId = document.getElementById('inst-selector')?.value;
+        const uDeptoId = document.getElementById('dept-selector')?.value;
+        const [uType, uIdRaw] = uDeptoId && uDeptoId.includes(':') ? uDeptoId.split(':') : ['depto', uDeptoId];
+        const uId = uIdRaw ? parseInt(uIdRaw) : null;
+        const deptoId = uType === 'depto' ? uId : null;
+        const instId = uType === 'inst' ? uId : document.getElementById('inst-selector')?.value;
         const container = document.getElementById(containerId);
         let [comisiones, materias] = await Promise.all([
             Comisiones.list(deptoId, null, instId), 

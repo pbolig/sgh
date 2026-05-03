@@ -11,18 +11,23 @@ export const Reportes = {
     // Cargar todos los datos necesarios para evitar llamadas repetitivas
     cargarDatosMaestros: async () => {
         const instId = document.getElementById('inst-selector')?.value;
-        const deptoId = document.getElementById('dept-selector')?.value;
+        const uIdRaw = document.getElementById('dept-selector')?.value;
+        const [uType, uIdNumeric] = uIdRaw && uIdRaw.includes(':') ? uIdRaw.split(':') : ['depto', uIdRaw];
+        const deptoId = uType === 'depto' ? uIdNumeric : null;
+        const carreraId = uType === 'carrera' ? uIdNumeric : null;
+        const param = carreraId ? `carrera_id=${carreraId}` : (deptoId ? `departamento_id=${deptoId}` : '');
+
         try {
             const [docentes, departamentos, materias, aulas, comisiones, asignaciones, modulos, cargos, cargoAsignaciones] = await Promise.all([
                 Docentes.list(instId),
                 Departamentos.list(instId),
-                Materias.list(deptoId),
-                fetch(`/api/aulas${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
-                Comisiones.list(deptoId),
-                fetch(`/api/asignaciones${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
-                fetch('/api/modulos').then(r => r.json()),
-                fetch(`/api/cargos${deptoId ? '?departamento_id=' + deptoId : ''}`).then(r => r.json()),
-                fetch('/api/cargo-asignaciones').then(r => r.json())
+                Materias.list(deptoId, instId, carreraId),
+                fetch(`/api/aulas${param ? '?' + param : ''}`, { headers: { 'Authorization': `Bearer ${Auth.getToken()}` } }).then(r => r.json()),
+                Comisiones.list(deptoId, null, null, carreraId),
+                fetch(`/api/asignaciones${param ? '?' + param : ''}`, { headers: { 'Authorization': `Bearer ${Auth.getToken()}` } }).then(r => r.json()),
+                fetch('/api/modulos', { headers: { 'Authorization': `Bearer ${Auth.getToken()}` } }).then(r => r.json()),
+                fetch(`/api/cargos${param ? '?' + param : ''}`, { headers: { 'Authorization': `Bearer ${Auth.getToken()}` } }).then(r => r.json()),
+                fetch('/api/cargo-asignaciones', { headers: { 'Authorization': `Bearer ${Auth.getToken()}` } }).then(r => r.json())
             ]);
 
             Reportes.datosMaestros = {
@@ -52,6 +57,7 @@ export const Reportes = {
                             <option value="docente">🧍‍♂️ Por Docente</option>
                             <option value="departamento">🏛️ Por Departamento / Carrera</option>
                             <option value="dia">🗓️ Padrón por Día</option>
+                            <option value="conflictos">🚨 Reporte de Solapamientos</option>
                         </select>
                     </div>
                     
@@ -120,7 +126,7 @@ export const Reportes = {
 
         const selDepto = document.getElementById('filter-departamento');
         departamentos.forEach(d => {
-            selDepto.innerHTML += `<option value="${d.id}">${d.nombre}</option>`;
+            selDepto.innerHTML += `<option value="${d.u_id}">${d.icono} ${d.nombre}</option>`;
         });
         
         // Poner dia de hoy por defecto si corresponde
@@ -154,6 +160,8 @@ export const Reportes = {
                     if (val === 'docente') Reportes.generarReporteDocente(specificSelect.value);
                     else if (val === 'departamento') Reportes.generarReporteDepto(specificSelect.value);
                     else if (val === 'dia') Reportes.generarReporteDia(specificSelect.value);
+                } else if (val === 'conflictos') {
+                    Reportes.generarReporteConflictos();
                 } else {
                     document.getElementById('report-results').innerHTML = '<div class="empty-state">Seleccione un parámetro de filtro específico.</div>';
                 }
@@ -312,16 +320,82 @@ export const Reportes = {
         resCnt.innerHTML = html;
     },
 
-    generarReporteDepto: (deptoId) => {
+    generarReporteConflictos: async () => {
         const resCnt = document.getElementById('report-results');
-        if(!deptoId) return;
+        resCnt.innerHTML = '<div class="loading-spinner">Analizando conflictos de docentes...</div>';
         
-        deptoId = parseInt(deptoId);
+        try {
+            const response = await fetch('/api/reportes/conflictos-docentes', {
+                headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+            });
+            if (!response.ok) throw new Error("Error al obtener reporte");
+            const conflictos = await response.json();
+
+            if (conflictos.length === 0) {
+                resCnt.innerHTML = `
+                    <div class="empty-state success-state animated fadeIn">
+                        <span class="empty-icon">✅</span>
+                        <h3>¡Sin Conflictos!</h3>
+                        <p>No se detectaron docentes con solapamientos de horarios en esta institución.</p>
+                    </div>`;
+                return;
+            }
+
+            let html = `
+                <div class="report-header animated fadeIn" style="margin-bottom: 20px;">
+                    <h3>🚨 Detección de Solapamientos de Docentes</h3>
+                    <p>Se han encontrado <strong>${conflictos.length}</strong> puntos de solapamiento donde un docente tiene dos o más clases al mismo tiempo.</p>
+                </div>
+                <div class="conflictos-table-container animated slideInUp">
+                    <table class="table-modern">
+                        <thead>
+                            <tr>
+                                <th>Docente</th>
+                                <th>Día</th>
+                                <th>Horario</th>
+                                <th style="width: 50%;">Materias / Aulas en Conflicto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            conflictos.forEach(c => {
+                const detallesHtml = c.detalles.map(d => `
+                    <div class="conflict-item" style="padding: 5px; border-bottom: 1px solid #eee;">
+                        <strong>${d.materia}</strong> - ${d.aula} <span class="badge secondary" style="font-size: 0.7em;">${d.comision}</span>
+                    </div>
+                `).join('');
+
+                html += `
+                    <tr>
+                        <td><strong>${c.docente_nombre}</strong></td>
+                        <td class="capitalize">${c.dia}</td>
+                        <td><span class="badge warning">${c.modulo}</span></td>
+                        <td>${detallesHtml}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table></div>`;
+            resCnt.innerHTML = html;
+
+        } catch (error) {
+            console.error(error);
+            resCnt.innerHTML = '<div class="error-message">Error al cargar el reporte de conflictos.</div>';
+        }
+    },
+
+    generarReporteDepto: (uDeptoId) => {
+        const resCnt = document.getElementById('report-results');
+        if(!uDeptoId) return;
+        
+        const [uType, uIdRaw] = uDeptoId.includes(':') ? uDeptoId.split(':') : ['depto', uDeptoId];
+        const uId = parseInt(uIdRaw);
         const { departamentos, asignaciones, modulos, aulas, materias, docentes, comisiones, cargos, cargoAsignaciones } = Reportes.datosMaestros;
-        const dpt = departamentos.find(dp => dp.id === deptoId);
+        const dpt = departamentos.find(dp => dp.u_id === uDeptoId);
         
-        const asigsDepto = asignaciones;
-        const asigsCargosDepto = (cargoAsignaciones || []).filter(c => c.departamento_id === deptoId);
+        const asigsDepto = asignaciones.filter(a => (uType === 'depto' ? a.departamento_id === uId : a.carrera_id === uId));
+        const asigsCargosDepto = (cargoAsignaciones || []).filter(c => (uType === 'depto' ? c.departamento_id === uId : c.carrera_id === uId));
 
         if(asigsDepto.length === 0 && asigsCargosDepto.length === 0) {
             resCnt.innerHTML = `<div class="empty-state">No hay actividad ni cargos registrados en el departamento ${dpt.nombre}.</div>`;

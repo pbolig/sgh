@@ -45,25 +45,39 @@ export const Dashboard = {
             return;
         }
         
+        const authHeader = { 'Authorization': `Bearer ${Auth.getToken()}` };
+        
         // Cargar datos necesarios con manejo de errores robusto
-        const [deptos, modulos, aulas, docentes, comisiones, allAsignaciones, cargoAsignaciones, cargos, excluidos, calEvents] = await Promise.all([
+        let [deptos, modulos, aulas, docentes, comisiones, allAsignaciones, cargoAsignaciones, cargos, excluidos, calEvents] = await Promise.all([
             Departamentos.list(instId).catch(() => []),
-            fetch('/api/modulos').then(r => r.ok ? r.json() : []).catch(() => []),
-            fetch(`/api/aulas?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/modulos', { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/aulas?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
             Docentes.list(instId).catch(() => []),
             Comisiones.list(deptoId, null, instId).catch(() => []),
-            fetch(`/api/asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
-            fetch(`/api/cargo-asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`).then(r => r.ok ? r.json() : []).catch(() => []),
-            fetch('/api/cargos').then(r => r.ok ? r.json() : []).catch(() => []),
-            fetch(`/api/recreos_excluidos?institucion_id=${instId}`).then(r => r.ok ? r.json() : []).catch(() => []),
-            fetch(`/api/calendarios?institucion_id=${instId}`).then(r => r.ok ? r.json() : []).catch(() => []).then(async cals => {
+            fetch(`/api/asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/cargo-asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch('/api/cargos', { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/recreos_excluidos?institucion_id=${instId}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
+            fetch(`/api/calendarios?institucion_id=${instId}`, { headers: authHeader }).then(r => (r.ok ? r.json() : [])).catch(() => []).then(async cals => {
                 if (Array.isArray(cals) && cals.length > 0) {
-                    const res = await fetch(`/api/calendario_eventos?calendario_id=${cals[0].id}`);
+                    const res = await fetch(`/api/calendario_eventos?calendario_id=${cals[0].id}`, { headers: authHeader });
                     return res.ok ? res.json() : [];
                 }
                 return [];
             })
         ]);
+
+        // Asegurar que todos sean arrays para evitar errores de .forEach o .filter
+        if (!Array.isArray(deptos)) deptos = [];
+        if (!Array.isArray(modulos)) modulos = [];
+        if (!Array.isArray(aulas)) aulas = [];
+        if (!Array.isArray(docentes)) docentes = [];
+        if (!Array.isArray(comisiones)) comisiones = [];
+        if (!Array.isArray(allAsignaciones)) allAsignaciones = [];
+        if (!Array.isArray(cargoAsignaciones)) cargoAsignaciones = [];
+        if (!Array.isArray(cargos)) cargos = [];
+        if (!Array.isArray(excluidos)) excluidos = [];
+        if (!Array.isArray(calEvents)) calEvents = [];
         
         // --- DEPARTAMENTO DE DEMOSTRACIÓN ELIMINADO ---
 

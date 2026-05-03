@@ -68,16 +68,19 @@ class Permiso(PermisoBase):
     class Config:
         from_attributes = True
 
-# Esquemas de Usuario
 class UsuarioBase(BaseModel):
     username: str
-    rol: str
+    rol: Optional[str] = None
     rol_id: Optional[int] = None
     activo: int
     institucion_id: Optional[int] = None
+    email: Optional[str] = None
 
 class UsuarioCreate(UsuarioBase):
     password: str
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    crear_perfil: Optional[bool] = False
 
 class UsuarioUpdate(BaseModel):
     username: Optional[str] = None
@@ -118,17 +121,74 @@ class Departamento(DepartamentoBase):
     class Config:
         from_attributes = True
 
+# Esquemas de Carrera
+class CarreraBase(BaseModel):
+    institucion_id: int
+    nombre: str
+    codigo: str
+    descripcion: Optional[str] = None
+    activo: Optional[int] = 1
+
+class CarreraCreate(CarreraBase):
+    pass
+
+class CarreraUpdate(BaseModel):
+    nombre: Optional[str] = None
+    codigo: Optional[str] = None
+    descripcion: Optional[str] = None
+    activo: Optional[int] = None
+
+class Carrera(CarreraBase):
+    id: int
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+# Esquemas de Estudiante
+class EstudianteBase(BaseModel):
+    usuario_id: int
+    carrera_id: int
+    legajo: str
+    nombre: str
+    apellido: str
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    anio_cursada: Optional[int] = 1
+    comision_id: Optional[int] = None
+    activo: Optional[int] = 1
+
+class EstudianteCreate(EstudianteBase):
+    password: str # Para crear el usuario vinculado
+
+class EstudianteUpdate(BaseModel):
+    nombre: Optional[str] = None
+    apellido: Optional[str] = None
+    email: Optional[str] = None
+    telefono: Optional[str] = None
+    anio_cursada: Optional[int] = None
+    comision_id: Optional[int] = None
+    activo: Optional[int] = None
+
+class Estudiante(EstudianteBase):
+    id: int
+    created_at: datetime
+    carrera: Optional[Carrera] = None
+    class Config:
+        from_attributes = True
+
 # Esquemas de Docente
 class DocenteBase(BaseModel):
     institucion_id: Optional[int] = None # Legacy
     institucion_ids: Optional[List[int]] = []
     departamento_ids: Optional[List[int]] = []
+    carrera_ids: Optional[List[int]] = []
     apellido: str
     nombre: Optional[str] = None
     email: Optional[str] = None
     telefono: Optional[str] = None
     situacion_revista: Optional[str] = "interino"
     es_temporal: Optional[bool] = False
+    usuario_id: Optional[int] = None
     activo: Optional[int] = 1
 
 class DocenteCreate(DocenteBase):
@@ -137,12 +197,14 @@ class DocenteCreate(DocenteBase):
 class DocenteUpdate(BaseModel):
     institucion_ids: Optional[List[int]] = None
     departamento_ids: Optional[List[int]] = None
+    carrera_ids: Optional[List[int]] = None
     apellido: Optional[str] = None
     nombre: Optional[str] = None
     email: Optional[str] = None
     telefono: Optional[str] = None
     situacion_revista: Optional[str] = None
     es_temporal: Optional[bool] = None
+    usuario_id: Optional[int] = None
     activo: Optional[int] = None
 
 class Docente(DocenteBase):
@@ -159,7 +221,8 @@ class MateriaBase(BaseModel):
     nombre: str
     codigo: str
     codigo_interno: Optional[str] = None
-    departamento_id: int
+    departamento_id: Optional[int] = None
+    carrera_id: Optional[int] = None
     anio: Optional[int] = 1 # Año/Nivel de la carrera
     carga_horaria_modulos: Optional[int] = 0
     correlativas: Optional[str] = None # JSON string
@@ -172,6 +235,7 @@ class MateriaUpdate(BaseModel):
     codigo: Optional[str] = None
     codigo_interno: Optional[str] = None
     departamento_id: Optional[int] = None
+    carrera_id: Optional[int] = None
     anio: Optional[int] = None
     carga_horaria_modulos: Optional[int] = None
     correlativas: Optional[str] = None
@@ -384,7 +448,8 @@ class CargoAsignacion(CargoAsignacionBase):
 
 # Esquemas de Asignacion
 class AsignacionBase(BaseModel):
-    departamento_id: int
+    departamento_id: Optional[int] = None
+    carrera_id: Optional[int] = None
     aula_id: int
     modulo_id: int
     dia_semana: str
@@ -401,12 +466,14 @@ class Asignacion(AsignacionBase):
     updated_at: datetime
     updated_by: Optional[str] = None
     reemplazo_activo: Optional[dict] = None
+    warning: Optional[str] = None
     class Config:
         from_attributes = True
 
 # Esquemas de RecreoExcluido
 class RecreoExcluidoBase(BaseModel):
-    departamento_id: int
+    departamento_id: Optional[int] = None
+    carrera_id: Optional[int] = None
     dia_semana: str
     modulo_id_anterior: int
 
@@ -418,11 +485,101 @@ class RecreoExcluido(RecreoExcluidoBase):
     class Config:
         from_attributes = True
 
+# --- ESQUEMAS DE COMUNICACIÓN (CRM) ---
+
+class ComunicacionMensajeBase(BaseModel):
+    texto: str
+
+class ComunicacionMensajeCreate(ComunicacionMensajeBase):
+    comunicacion_id: int
+
+class ComunicacionMensaje(ComunicacionMensajeBase):
+    id: int
+    comunicacion_id: int
+    usuario_id: int
+    usuario: Optional[Usuario] = None
+    created_at: datetime
+    class Config:
+        from_attributes = True
+
+# --- ESQUEMAS DE CONFIGURACIÓN ---
+class ConfiguracionSistemaBase(BaseModel):
+    entorno: str
+    servicio: str
+    config: dict
+    activo: Optional[bool] = True
+
+class ConfiguracionSistemaCreate(ConfiguracionSistemaBase):
+    pass
+
+class ConfiguracionSistemaUpdate(BaseModel):
+    config: Optional[dict] = None
+    activo: Optional[bool] = None
+
+class ConfiguracionSistema(ConfiguracionSistemaBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    class Config:
+        from_attributes = True
+
+
+class ComunicacionBase(BaseModel):
+    tipo: str # anuncio, ticket
+    asunto: str
+    categoria: Optional[str] = None
+    estado: Optional[str] = "abierto"
+    prioridad: Optional[str] = "normal"
+    destinatario_id: Optional[int] = None         # Usuario destino (tiene cuenta)
+    destinatario_docente_id: Optional[int] = None  # Docente destino (sin cuenta de usuario)
+    filtro_audiencia: Optional[dict] = None
+    estado_notificacion: Optional[dict] = None
+
+class DestinatarioDocenteMinimo(BaseModel):
+    id: int
+    nombre: str
+    apellido: str
+    class Config:
+        from_attributes = True
+
+class DestinatarioUsuarioMinimo(BaseModel):
+    id: int
+    username: str
+    rol: str
+    class Config:
+        from_attributes = True
+
+class ComunicacionCreate(ComunicacionBase):
+    mensaje_inicial: str
+    destinatario_docente_id: Optional[int] = None  # Para tickets a docentes sin cuenta
+
+class Comunicacion(ComunicacionBase):
+    id: int
+    remitente_id: int
+    remitente: Optional[Usuario] = None
+    destinatario: Optional[DestinatarioUsuarioMinimo] = None
+    destinatario_docente: Optional[DestinatarioDocenteMinimo] = None
+    created_at: datetime
+    updated_at: datetime
+    mensajes: List[ComunicacionMensaje] = []
+    class Config:
+        from_attributes = True
+
 # Token
 class Token(BaseModel):
     access_token: str
     token_type: str
     user: Usuario
+
+class UsuarioDestinatario(BaseModel):
+    id: Optional[int] = None  # El usuario_id (puede ser None si el docente no tiene cuenta)
+    docente_id: Optional[int] = None  # docente_id directo (para docentes sin cuenta de usuario)
+    nombre: str
+    apellido: str
+    rol: str
+    email: Optional[str] = None
+    entidad_id: Optional[int] = None # docente_id o estudiante_id
+    info_extra: Optional[str] = None # "Carrera: X", "Materia: Y", etc.
 
 class TokenData(BaseModel):
     username: Optional[str] = None
@@ -432,6 +589,7 @@ class TokenData(BaseModel):
 
 class CalendarioBase(BaseModel):
     departamento_id: Optional[int] = None
+    carrera_id: Optional[int] = None
     nombre: str
     descripcion: Optional[str] = None
 
@@ -460,6 +618,7 @@ class CalendarioCategoria(CalendarioCategoriaBase):
 class CalendarioEventoBase(BaseModel):
     calendario_id: int
     departamento_id: Optional[int] = None
+    carrera_id: Optional[int] = None
     fecha: str
     categoria_id: int
     descripcion: Optional[str] = None
@@ -526,14 +685,16 @@ class Planificacion(PlanificacionBase):
 
 # Esquemas de Configuración de Turnos
 class TurnoConfigBase(BaseModel):
-    departamento_id: int
+    departamento_id: Optional[int] = None
+    carrera_id: Optional[int] = None
     turno: str
     dia_semana: str
     hora_inicio: str
+    desfase: int = 0
     secuencia: List[dict]
 
 class TurnoConfigCreate(TurnoConfigBase):
-    pass
+    aplicar_a_toda_la_semana: bool = False
 
 class TurnoConfig(TurnoConfigBase):
     id: int

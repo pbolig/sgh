@@ -7,7 +7,10 @@
     --text-main: #f8fafc;
     --text-dim: #94a3b8;
     --accent: #8b5cf6;
+    --primary-rgb: 99, 102, 241;
+    --accent-rgb: 139, 92, 246;
     --error: #ef4444;
+
     --success: #10b981;
     --glass: rgba(255, 255, 255, 0.05);
     --border: rgba(255, 255, 255, 0.1);
@@ -4178,4 +4181,325 @@ textarea:focus {
         gap: 1rem;
         align-items: flex-start;
     }
+}
+
+/* --- TIMELINE CONFIG MODAL & PREP STYLES --- */
+.timeline-config-modal { max-width: 500px !important; }
+.timeline-list { margin: 15px 0; max-height: 400px; overflow-y: auto; padding-right: 5px; }
+.timeline-list::-webkit-scrollbar { width: 6px; }
+.timeline-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+.timeline-item { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+.timeline-item.type-mod { border-left: 4px solid var(--primary); }
+.timeline-item.type-rec { border-left: 4px solid var(--accent); opacity: 0.8; }
+.config-header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: rgba(255,255,255,0.03); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 20px; }
+.highlight-box { background: rgba(var(--primary-rgb), 0.1); padding: 8px 12px; border-radius: 8px; border: 1px dashed var(--primary); display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.time-indicator { font-size: 1.4rem; font-weight: bold; color: var(--primary); text-shadow: 0 0 10px rgba(var(--primary-rgb), 0.3); }
+.prep-row { background: rgba(var(--accent-rgb), 0.08) !important; }
+.prep-cell { background: rgba(var(--accent-rgb), 0.03); cursor: pointer; transition: background 0.2s; }
+.prep-cell:hover { background: rgba(var(--accent-rgb), 0.15) !important; }
+.prep-row .time-cell .mod-num { color: var(--accent); font-weight: bold; }
+
+/* --- COMUNICACIONES (CRM) STYLES --- */
+.comms-container {
+    display: flex;
+    height: calc(100vh - 120px);
+    gap: 1px;
+    background: var(--bg-card);
+    border-radius: 1rem;
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.comms-sidebar {
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.3);
+    border-right: 1px solid var(--border);
+}
+
+.comms-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.comms-tabs {
+    display: flex;
+    padding: 0.5rem;
+    gap: 5px;
+    border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 0.5rem;
+    border: none;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.tab-btn.active {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.comms-list-column {
+    width: 350px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: rgba(15, 23, 42, 0.1);
+}
+
+.comms-list-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.comms-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.comms-item {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.comms-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.comms-item.active {
+    background: rgba(99, 102, 241, 0.1);
+    border-left: 3px solid var(--primary);
+}
+
+.comms-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.comms-item .subject {
+    color: white;
+    font-size: 0.95rem;
+    margin-bottom: 0.25rem;
+}
+
+.comms-item .preview {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+}
+
+.comms-chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: rgba(15, 23, 42, 0.2);
+}
+
+.chat-header {
+    padding: 1.25rem 2rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.messages-list {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.msg-bubble {
+    max-width: 70%;
+    padding: 1rem 1.25rem;
+    border-radius: 1.25rem;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    position: relative;
+}
+
+.msg-sent {
+    align-self: flex-end;
+    background: var(--primary);
+    color: white;
+    border-bottom-right-radius: 0.25rem;
+}
+
+.msg-received {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    border-bottom-left-radius: 0.25rem;
+    border: 1px solid var(--border);
+}
+
+.msg-meta {
+    font-size: 0.75rem;
+    margin-bottom: 0.4rem;
+    opacity: 0.7;
+}
+
+.chat-footer {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.chat-footer textarea {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.75rem 1.25rem;
+    color: white;
+    resize: none;
+    height: 45px;
+    transition: all 0.2s;
+}
+
+.chat-footer textarea:focus {
+    border-color: var(--primary);
+    outline: none;
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.btn-send {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-send:hover {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+}
+
+/* --- BUTTON GLOW EFFECTS --- */
+.btn-primary-glow {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.8rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.3);
+}
+
+.btn-primary-glow:hover {
+    box-shadow: 0 8px 25px rgba(var(--primary-rgb), 0.5);
+    transform: translateY(-2px);
+}
+
+.btn-sec-glow {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    border: 1px solid var(--border);
+    padding: 0.8rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-sec-glow:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.status-tag {
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.tag-abierto, [class^="badge-abierto"] { background: rgba(59, 130, 246, 0.1); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+.tag-en_proceso, [class^="badge-en_proceso"] { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+.tag-resuelto, [class^="badge-resuelto"] { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+.tag-cerrado, [class^="badge-cerrado"] { background: rgba(148, 163, 184, 0.1); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+
+.btn-danger-outline {
+    background: transparent;
+    color: var(--error);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 0.8rem 1.5rem;
+    border-radius: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-danger-outline:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: var(--error);
+}
+
+.comms-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-dim);
+    gap: 1rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.comms-empty-state i {
+    font-size: 3rem;
+    opacity: 0.2;
+}
+
+.badge-ticket { background: var(--primary); color: white; }
+.badge-anuncio { background: var(--accent); color: white; }
+
+.comms-item-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.75rem;
+}
+
+.comms-item-footer .time {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+/* Glass effect for containers */
+.glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
