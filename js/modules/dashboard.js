@@ -217,6 +217,12 @@ export const Dashboard = {
                     // Y filtrar por el depto específico si está seleccionado
                     if (instId && instId !== 'todas' && d.institucion_id && d.institucion_id.toString() !== instId.toString()) return false;
                     if (!selectedDeptId || selectedDeptId === 'todos' || selectedDeptId === '') return true;
+                    
+                    const [uType, uIdRaw] = selectedDeptId.includes(':') ? selectedDeptId.split(':') : ['depto', selectedDeptId];
+                    const uId = uIdRaw ? parseInt(uIdRaw) : null;
+                    if (uType === 'depto') return d.id === uId;
+                    if (uType === 'carrera') return true;
+                    
                     return d.id.toString() === selectedDeptId;
                 });
 
@@ -374,6 +380,12 @@ export const Dashboard = {
                         const deptosScope = (deptos || []).filter(d => {
                             if (selInstId && selInstId !== 'todas' && d.institucion_id && d.institucion_id.toString() !== selInstId.toString()) return false;
                             if (!selId || selId === 'todos' || selId === '') return true;
+                            
+                            const [uType, uIdRaw] = selId.includes(':') ? selId.split(':') : ['depto', selId];
+                            const uId = uIdRaw ? parseInt(uIdRaw) : null;
+                            if (uType === 'depto') return d.id === uId;
+                            if (uType === 'carrera') return true;
+                            
                             return d.id.toString() === selId;
                         });
                         
@@ -574,6 +586,12 @@ export const Dashboard = {
                 const selId = ds ? ds.value : '';
                 const deptosScope = deptos.filter(d => {
                     if (!selId || selId === 'todos' || selId === '') return true;
+                    
+                    const [uType, uIdRaw] = selId.includes(':') ? selId.split(':') : ['depto', selId];
+                    const uId = uIdRaw ? parseInt(uIdRaw) : null;
+                    if (uType === 'depto') return d.id === uId;
+                    if (uType === 'carrera') return true;
+                    
                     return d.id.toString() === selId;
                 });
 
