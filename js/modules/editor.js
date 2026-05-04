@@ -292,7 +292,34 @@ export const Editor = {
             window.editCargoAula = (asigId) => {
                 const asig = cargosAsig.find(a => a.id === asigId);
                 if (asig) {
-                    CargoAsignaciones.showForm(asig, docentes, deptos, cargosDef, deptoId);
+                    CargoAsignaciones.showForm(asig, docentes, deptos, cargosDef, deptoId, null, () => {
+                        const controls = document.querySelectorAll('.grid-controls select');
+                        const selectedDia = controls[0] ? controls[0].value : dia;
+                        const selectedTurno = controls[1] ? controls[1].value : turno;
+                        Editor.loadGrid(deptoId, selectedDia, selectedTurno);
+                    });
+                }
+            };
+
+            window.promptDeleteAsig = async (asigId, deptoId, dia, turno) => {
+                if (confirm('Esta es una asignación de Materia (modo legacy). ¿Desea eliminarla por completo de la grilla?')) {
+                    try {
+                        const response = await fetch(`/api/asignaciones/${asigId}`, {
+                            method: 'DELETE',
+                            headers: { 'Authorization': `Bearer ${Auth.getToken()}` }
+                        });
+                        if (response.ok) {
+                            const controls = document.querySelectorAll('.grid-controls select');
+                            const selectedDia = controls[0] ? controls[0].value : dia;
+                            const selectedTurno = controls[1] ? controls[1].value : turno;
+                            Editor.loadGrid(deptoId, selectedDia, selectedTurno);
+                        } else {
+                            alert('Error al eliminar la asignación de materia.');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        alert('Error de conexión.');
+                    }
                 }
             };
 
@@ -694,7 +721,8 @@ export const Editor = {
         const titularStyle = reem ? 'opacity: 0.5; text-decoration: line-through; font-size: 0.8rem;' : '';
 
         return `
-            <div class="asig-block" style="border-left: 4px solid var(--primary); ${reem ? 'background: rgba(0,0,0,0.05);' : ''}">
+            <div class="asig-block" style="border-left: 4px solid var(--primary); cursor: pointer; ${reem ? 'background: rgba(0,0,0,0.05);' : ''}"
+                 onclick="event.stopPropagation(); window.promptDeleteAsig(${asig.id}, '${asig.departamento_id || asig.carrera_id || ''}', '${dia}', '${modulo?.turno || 'mañana'}')">
                 <div class="asig-materia">${mat ? mat.nombre : 'S/M'}</div>
                 <div class="asig-docente" style="${titularStyle}">
                     ${doc ? `${doc.apellido}, ${doc.nombre}` : 'S/D'}

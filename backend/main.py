@@ -1137,6 +1137,15 @@ async def create_asignacion(asignacion: schemas.AsignacionCreate, db: Session = 
         
     return new_asignacion
 
+@app.delete("/asignaciones/{id}")
+async def delete_asignacion(id: int, db: Session = Depends(get_db)):
+    db_asig = db.query(models.Asignacion).filter(models.Asignacion.id == id).first()
+    if not db_asig:
+        raise HTTPException(status_code=404, detail="Asignación no encontrada")
+    db.delete(db_asig)
+    db.commit()
+    return {"message": "Asignación eliminada"}
+
 # --- RECREOS EXCLUIDOS ---
 
 @app.get("/recreos_excluidos", response_model=List[schemas.RecreoExcluido])

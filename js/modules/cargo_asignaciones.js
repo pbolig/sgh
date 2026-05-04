@@ -310,6 +310,7 @@ export const CargoAsignaciones = {
                         </div>
 
                         <div class="modal-actions">
+                            ${isEdit ? `<button type="button" class="btn-delete" id="btn-delete-asig">Eliminar</button>` : ''}
                             <button type="submit" class="btn-primary">Guardar Asignación</button>
                             <button type="button" class="btn-secondary" id="btn-close-modal">Cancelar</button>
                         </div>
@@ -463,6 +464,24 @@ export const CargoAsignaciones = {
                     }
                 } else alert(res.error);
             };
+
+            if (isEdit) {
+                const btnDelete = modal.querySelector('#btn-delete-asig');
+                if (btnDelete) {
+                    btnDelete.onclick = async () => {
+                        if (confirm('¿Está seguro de eliminar esta asignación por completo?')) {
+                            const res = await CargoAsignaciones.delete(asig.id);
+                            if (res.success) {
+                                modal.remove();
+                                if (onSuccess) onSuccess();
+                                else CargoAsignaciones.render('view-container');
+                            } else {
+                                alert(res.error);
+                            }
+                        }
+                    };
+                }
+            }
         };
 
         renderForm();
