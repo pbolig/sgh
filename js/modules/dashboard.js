@@ -294,40 +294,48 @@ export const Dashboard = {
                                         `;
                                     }).join('')}
 
-                                    <!-- Fila de Personal de Servicio (Cargos) -->
-                                    ${(() => {
-                                        const cargosHoy = (cargoAsignaciones || []).filter(ca => {
-                                            return ca.departamento_id === depto.id && (ca.horarios || []).some(h => h.dia_semana === diaActual);
-                                        });
+                                </div> <!-- close aulas timeline-container -->
+                                    
+                                <!-- Fila de Personal de Servicio (Cargos) -->
+                                ${(() => {
+                                    const cargosHoy = (cargoAsignaciones || []).filter(ca => {
+                                        return ca.departamento_id === depto.id && (ca.horarios || []).some(h => h.dia_semana === diaActual);
+                                    });
 
-                                        if (cargosHoy.length === 0) return '';
+                                    if (cargosHoy.length === 0) return '';
 
-                                        return cargosHoy.map(ca => {
-                                            const doc = docentes.find(d => d.id === ca.docente_id);
-                                            const cgDef = (cargos || []).find(c => c.id === ca.cargo_id);
-                                            const slotsHoy = ca.horarios.filter(h => h.dia_semana === diaActual);
-                                            
-                                            return `
-                                                <div class="timeline-track cargo-track">
-                                                    <div class="track-label" style="color: #8b5cf6;">👥 ${doc ? doc.apellido : 'Personal'}</div>
-                                                    <div class="track-content">
-                                                        ${slotsHoy.map(s => {
-                                                            const left = getLeftPercent(s.hora_inicio);
-                                                            const width = getWidthPercent(s.hora_inicio, s.hora_fin);
-                                                            return `
-                                                                <div class="time-block block-cargo" style="left: ${left}%; width: ${width}%">
-                                                                    <div class="tb-head">${cgDef ? cgDef.nombre : 'Cargo'}</div>
-                                                                    <div class="tb-body">${doc ? `${doc.apellido}, ${doc.nombre}` : ''}</div>
-                                                                    <div class="tb-time">${s.hora_inicio}-${s.hora_fin}</div>
-                                                                </div>
-                                                            `;
-                                                        }).join('')}
+                                    return `
+                                        <h4 class="timeline-depto-title" style="margin-top: 1.5rem; color: #8b5cf6; font-size: 0.85rem; padding-bottom: 0.5rem; border-bottom: 1px solid rgba(139, 92, 246, 0.2);">
+                                            👥 Personal de Servicio / Administrativo
+                                        </h4>
+                                        <div class="timeline-container" style="border-left: 2px solid rgba(139, 92, 246, 0.5);">
+                                            ${cargosHoy.map(ca => {
+                                                const doc = docentes.find(d => d.id === ca.docente_id);
+                                                const cgDef = (cargos || []).find(c => c.id === ca.cargo_id);
+                                                const slotsHoy = ca.horarios.filter(h => h.dia_semana === diaActual);
+                                                
+                                                return `
+                                                    <div class="timeline-track cargo-track">
+                                                        <div class="track-label" style="color: #8b5cf6;">${doc ? doc.apellido : 'Personal'}</div>
+                                                        <div class="track-content">
+                                                            ${slotsHoy.map(s => {
+                                                                const left = getLeftPercent(s.hora_inicio);
+                                                                const width = getWidthPercent(s.hora_inicio, s.hora_fin);
+                                                                return `
+                                                                    <div class="time-block block-cargo" style="left: ${left}%; width: ${width}%">
+                                                                        <div class="tb-head">${cgDef ? cgDef.nombre : 'Cargo'}</div>
+                                                                        <div class="tb-body">${doc ? `${doc.apellido}, ${doc.nombre}` : ''}</div>
+                                                                        <div class="tb-time">${s.hora_inicio}-${s.hora_fin}</div>
+                                                                    </div>
+                                                                `;
+                                                            }).join('')}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            `;
-                                        }).join('');
-                                    })()}
-                                </div>
+                                                `;
+                                            }).join('')}
+                                        </div>
+                                    `;
+                                })()}
                         </div>
                     `;
                 });
