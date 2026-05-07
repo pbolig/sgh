@@ -228,24 +228,23 @@ export const UI = {
     printWeeklyColumnSheet: (titulo, subtitulo, daysData) => {
         const printWindow = window.open('', '_blank');
         const styles = `
-            @page { size: landscape; margin: 0.8cm; }
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; color: #000; background: #fff; line-height: 1.2; }
-            .header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #000; padding-bottom: 5px; }
-            .header h1 { margin: 0; font-size: 14pt; text-transform: uppercase; }
-            .header h2 { margin: 3px 0; font-size: 10pt; color: #333; }
-            .columns-wrapper { display: flex; gap: 8px; align-items: stretch; height: calc(100vh - 100px); }
-            .day-column { flex: 1; border: 1px solid #000; display: flex; flex-direction: column; overflow: hidden; }
-            .day-header { background-color: #f2f2f2; text-align: center; font-weight: bold; padding: 4px; border-bottom: 1px solid #000; text-transform: uppercase; font-size: 9pt; }
-            .class-item { padding: 4px; border-bottom: 1px solid #eee; display: flex; flex-direction: column; gap: 1px; }
-            .class-time { font-size: 7.5pt; font-weight: bold; color: #555; }
-            .class-title { font-size: 8pt; font-weight: bold; color: #000; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-            .class-teacher { font-size: 7.5pt; font-style: italic; color: #333; margin-top: 1px; }
-            .sign-area { margin-top: 4px; border-top: 0.5pt dashed #999; padding-top: 2px; font-size: 6pt; color: #777; text-align: center; min-height: 20px; }
-            .empty-day { padding: 15px; text-align: center; font-style: italic; color: #999; font-size: 8pt; }
-            .footer { margin-top: 8px; font-size: 7pt; text-align: right; font-style: italic; }
+            @page { size: portrait; margin: 0.7cm; }
+            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 5px; color: #000; background: #fff; line-height: 1.1; }
+            .header { text-align: center; margin-bottom: 8px; border-bottom: 1.5px solid #000; padding-bottom: 3px; }
+            .header h1 { margin: 0; font-size: 12pt; text-transform: uppercase; }
+            .header h2 { margin: 2px 0; font-size: 9pt; color: #333; }
+            .columns-wrapper { display: flex; gap: 5px; align-items: stretch; }
+            .day-column { flex: 1; border: 0.5pt solid #000; display: flex; flex-direction: column; min-width: 0; }
+            .day-header { background-color: #f2f2f2; text-align: center; font-weight: bold; padding: 3px; border-bottom: 0.5pt solid #000; text-transform: uppercase; font-size: 8pt; }
+            .class-item { padding: 3px; border-bottom: 0.2pt solid #eee; display: flex; flex-direction: column; gap: 1px; }
+            .class-time { font-size: 6.5pt; font-weight: bold; color: #444; }
+            .class-title { font-size: 7pt; font-weight: bold; color: #000; line-height: 1; word-wrap: break-word; }
+            .class-teacher { font-size: 6.5pt; font-style: italic; color: #333; }
+            .sign-area { margin-top: 3px; border-top: 0.3pt dashed #999; padding-top: 1px; font-size: 5.5pt; color: #777; text-align: center; min-height: 18px; }
+            .empty-day { padding: 10px 2px; text-align: center; font-style: italic; color: #999; font-size: 7pt; }
+            .footer { margin-top: 5px; font-size: 6pt; text-align: right; font-style: italic; }
             @media print {
                 body { padding: 0; }
-                .columns-wrapper { height: auto; }
             }
         `;
 
