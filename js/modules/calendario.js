@@ -16,11 +16,15 @@ export const Calendario = {
     selEnd: null,
 
     async init() {
+        const instId = document.getElementById('inst-selector')?.value;
         const deptoId = document.getElementById('dept-selector')?.value;
         // Cargar calendarios y seleccionar el primero
         try {
             let url = `/api/calendarios`;
-            if (deptoId) url += `?departamento_id=${deptoId}`;
+            let params = [];
+            if (instId && instId !== 'todas') params.push(`institucion_id=${instId}`);
+            if (deptoId && deptoId !== 'todos') params.push(`departamento_id=${deptoId}`);
+            if (params.length > 0) url += `?${params.join('&')}`;
             
             const cals = await fetch(url).then(r => r.json());
             if (cals && cals.length > 0) {

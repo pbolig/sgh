@@ -552,6 +552,13 @@ async def create_docente(docente: schemas.DocenteCreate, db: Session = Depends(g
     inst_ids = data.pop("institucion_ids", [])
     dept_ids = data.pop("departamento_ids", [])
     
+    if data.get("email") and inst_ids:
+        existing_docentes = db.query(models.Docente).filter(models.Docente.email.ilike(data["email"].strip())).all()
+        for ed in existing_docentes:
+            ed_inst_ids = [i.id for i in ed.instituciones]
+            if set(inst_ids).intersection(set(ed_inst_ids)):
+                raise HTTPException(status_code=400, detail="Ya existe un docente registrado con este correo electrónico (email) en la institución seleccionada.")
+    
     new_docente = models.Docente(**data)
     
     if inst_ids:
@@ -575,6 +582,16 @@ async def update_docente(id: int, docente: schemas.DocenteUpdate, db: Session = 
     dept_ids = data.pop("departamento_ids", None)
     carrera_ids = data.pop("carrera_ids", None)
     
+    new_email = data.get("email", db_docente.email)
+    check_inst_ids = inst_ids if inst_ids is not None else [i.id for i in db_docente.instituciones]
+    
+    if new_email and check_inst_ids:
+        existing_docentes = db.query(models.Docente).filter(models.Docente.email.ilike(new_email.strip()), models.Docente.id != id).all()
+        for ed in existing_docentes:
+            ed_inst_ids = [i.id for i in ed.instituciones]
+            if set(check_inst_ids).intersection(set(ed_inst_ids)):
+                raise HTTPException(status_code=400, detail="Ya existe OTRO docente registrado con este correo electrónico (email) en la institución seleccionada.")
+    
     for key, value in data.items():
         setattr(db_docente, key, value)
         
@@ -588,6 +605,16 @@ async def update_docente(id: int, docente: schemas.DocenteUpdate, db: Session = 
     db.commit()
     db.refresh(db_docente)
     return db_docente
+
+@app.delete("/docentes/{id}")
+async def delete_docente(id: int, db: Session = Depends(get_db)):
+    db_docente = db.query(models.Docente).filter(models.Docente.id == id).first()
+    if not db_docente:
+        raise HTTPException(status_code=404, detail="Docente no encontrado")
+    
+    db.delete(db_docente)
+    db.commit()
+    return {"message": "Docente eliminado exitosamente"}
 
 @app.post("/docentes/sync-users")
 async def sync_docente_users(db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):

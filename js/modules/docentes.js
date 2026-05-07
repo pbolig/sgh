@@ -82,6 +82,7 @@ export const Docentes = {
                 <h2>Gestión de Docentes</h2>
                 <button id="btn-add-docente" class="btn-primary">+ Nuevo Docente</button>
             </div>
+            <div class="table-responsive" style="overflow-x: auto; width: 100%;">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -119,6 +120,7 @@ export const Docentes = {
                     `).join('')}
                 </tbody>
             </table>
+            </div>
 
         `;
 

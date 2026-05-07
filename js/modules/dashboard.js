@@ -3,6 +3,7 @@ import { Auth } from './auth.js';
 import { Departamentos } from './departamentos.js';
 import { Docentes } from './docentes.js';
 import { Comisiones } from './comisiones.js';
+import { UI } from '../utils/ui.js';
 
 export const Dashboard = {
     timer: null,
@@ -29,6 +30,14 @@ export const Dashboard = {
                     <!-- Panel de Alertas Inteligentes (Smart Alerts) -->
                     <div class="smart-alerts-panel" id="smart-alerts-panel">
                         <!-- Alertas inyectadas aquí por JS -->
+                    </div>
+
+                    <!-- Botón de Acción Rápida: Planilla de Firmas -->
+                    <div class="header-actions">
+                        <button id="btn-print-signatures" class="btn-print-signatures" title="Imprimir Planilla de Firmas de Hoy">
+                            <span class="icon">🖨️</span>
+                            <span class="text">Planilla de Hoy</span>
+                        </button>
                     </div>
                 </div>
                 <div id="dashboard-timelines" class="dashboard-timelines">
@@ -57,8 +66,7 @@ export const Dashboard = {
             fetch(`/api/asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
             fetch(`/api/cargo-asignaciones?institucion_id=${instId}${deptoId ? '&departamento_id=' + deptoId : ''}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
             fetch('/api/cargos', { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
-            fetch(`/api/recreos_excluidos?institucion_id=${instId}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []),
-            fetch(`/api/calendarios?institucion_id=${instId}`, { headers: authHeader }).then(r => (r.ok ? r.json() : [])).catch(() => []).then(async cals => {
+            fetch(`/api/calendarios?institucion_id=${instId}`, { headers: authHeader }).then(r => r.ok ? r.json() : []).catch(() => []).then(async cals => {
                 if (Array.isArray(cals) && cals.length > 0) {
                     const res = await fetch(`/api/calendario_eventos?calendario_id=${cals[0].id}`, { headers: authHeader });
                     return res.ok ? res.json() : [];
@@ -66,6 +74,64 @@ export const Dashboard = {
                 return [];
             })
         ]);
+
+        // Lógica del botón de impresión
+        const btnPrint = document.getElementById('btn-print-signatures');
+        if (btnPrint) {
+            btnPrint.onclick = () => {
+                const now = new Date();
+                const diasDB = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+                const diaActual = diasDB[now.getDay()];
+                const instSelector = document.getElementById('inst-selector');
+                const deptSelector = document.getElementById('dept-selector');
+                const instNombre = instSelector.options[instSelector.selectedIndex].text;
+                const deptoNombre = deptSelector.options[deptSelector.selectedIndex].text;
+                
+                // Recolectar items para la planilla
+                const items = [];
+                
+                // 1. Clases (Asignaciones)
+                allAsignaciones.filter(as => as.dia_semana === diaActual).forEach(as => {
+                    const m = modulos.find(mod => mod.id === as.modulo_id);
+                    const aula = aulas.find(au => au.id === as.aula_id);
+                    const doc = docentes.find(dc => dc.id === as.docente_id);
+                    const com = comisiones.find(c => c.id === as.comision_id);
+                    const mat = com ? (com.materia_nombre || com.codigo) : 'S/M';
+
+                    if (m && aula) {
+                        items.push({
+                            horario: `${m.hora_inicio} - ${m.hora_fin}`,
+                            docente: doc ? `${doc.apellido}, ${doc.nombre}` : 'SIN DOCENTE',
+                            detalle: mat,
+                            aula: aula.nombre,
+                            timestamp: m.hora_inicio // Para ordenar
+                        });
+                    }
+                });
+
+                // 2. Cargos (Personal de servicio)
+                cargoAsignaciones.forEach(ca => {
+                    const doc = docentes.find(dc => dc.id === ca.docente_id);
+                    const cgDef = cargos.find(c => c.id === ca.cargo_id);
+                    const slots = (ca.horarios || []).filter(h => h.dia_semana === diaActual);
+
+                    slots.forEach(s => {
+                        items.push({
+                            horario: `${s.hora_inicio} - ${s.hora_fin}`,
+                            docente: doc ? `${doc.apellido}, ${doc.nombre}` : 'SIN DOCENTE',
+                            detalle: `CARGO: ${cgDef ? cgDef.nombre : 'S/D'}`,
+                            aula: 'P. Servicio',
+                            timestamp: s.hora_inicio
+                        });
+                    });
+                });
+
+                // Ordenar por hora de inicio
+                items.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
+                UI.printSignatureSheet(instNombre, `${deptoNombre} - ${now.toLocaleDateString()}`, items);
+            };
+        }
 
         // Asegurar que todos sean arrays para evitar errores de .forEach o .filter
         if (!Array.isArray(deptos)) deptos = [];
@@ -138,7 +204,7 @@ export const Dashboard = {
             const now = new Date();
             const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             const diaNom = diasSemana[now.getDay()];
-            const diaActual = diaNom.toLowerCase();
+            const diaActual = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][now.getDay()];
             const currMins = now.getHours() * 60 + now.getMinutes();
 
             // Refrescar reloj Retro Digital
@@ -227,11 +293,19 @@ export const Dashboard = {
                 });
 
                 deptosFilt.forEach(depto => {
-                    const deptoAulas = (aulas || []).filter(a => {
+                    let deptoAulas = (aulas || []).filter(a => {
                         if (a.departamento_id === depto.id) return true;
                         if (a.departamento_ids && Array.isArray(a.departamento_ids) && a.departamento_ids.includes(depto.id)) return true;
                         return false;
                     });
+                    
+                    // Si hay un filtro por carrera, solo mostrar las aulas que tienen clases activas para esa carrera
+                    if (selectedDeptId && selectedDeptId.includes('carrera:')) {
+                        deptoAulas = deptoAulas.filter(aula => {
+                            return (allAsignaciones || []).some(as => as.aula_id === aula.id && as.dia_semana === diaActual);
+                        });
+                    }
+
                     if (deptoAulas.length === 0) return;
 
                     const deptoModulos = (modulos || []).filter(m => {
@@ -375,7 +449,7 @@ export const Dashboard = {
                         // Calcular hora actual exacta en minutos
                         const curNow = new Date();
                         const cMins = curNow.getHours() * 60 + curNow.getMinutes();
-                        const curDia = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][curNow.getDay()];
+                        const curDia = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][curNow.getDay()];
                         
                         let activeHtml = '';
                         
@@ -588,7 +662,7 @@ export const Dashboard = {
                     `;
                 });
                 let currentActiveAlertIds = new Set();
-                const curDia = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][now.getDay()];
+                const curDia = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][now.getDay()];
                 
                 const ds = document.getElementById('dept-selector');
                 const selId = ds ? ds.value : '';

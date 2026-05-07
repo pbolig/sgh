@@ -4,7 +4,8 @@ import { Departamentos } from './departamentos.js';
 import { Materias } from './materias.js';
 import { Aulas } from './aulas.js';
 import { Comisiones } from './comisiones.js';
-
+import { Auth } from './auth.js';
+import { UI } from '../utils/ui.js';
 export const Reportes = {
     datosMaestros: null,
 
@@ -57,6 +58,7 @@ export const Reportes = {
                             <option value="docente">🧍‍♂️ Por Docente</option>
                             <option value="departamento">🏛️ Por Departamento / Carrera</option>
                             <option value="dia">🗓️ Padrón por Día</option>
+                            <option value="semanal">📊 Planilla Semanal (Matricial)</option>
                             <option value="conflictos">🚨 Reporte de Solapamientos</option>
                         </select>
                     </div>
@@ -160,8 +162,11 @@ export const Reportes = {
                     if (val === 'docente') Reportes.generarReporteDocente(specificSelect.value);
                     else if (val === 'departamento') Reportes.generarReporteDepto(specificSelect.value);
                     else if (val === 'dia') Reportes.generarReporteDia(specificSelect.value);
+                    else if (val === 'semanal') Reportes.generarReporteSemanal();
                 } else if (val === 'conflictos') {
                     Reportes.generarReporteConflictos();
+                } else if (val === 'semanal') {
+                    Reportes.generarReporteSemanal();
                 } else {
                     document.getElementById('report-results').innerHTML = '<div class="empty-state">Seleccione un parámetro de filtro específico.</div>';
                 }
@@ -623,8 +628,110 @@ export const Reportes = {
             `;
         });
 
-        html += `</tbody></table></div>`;
+        html += `</tbody></table></div>
+                <div class="report-actions" style="margin-top: 20px; text-align: right;">
+                    <button id="btn-print-signatures-rep" class="btn-primary">🖨️ Imprimir Planilla de Firmas</button>
+                </div>
+            </div>`;
         resCnt.innerHTML = html;
+
+        // Lógica de impresión desde reportes
+        document.getElementById('btn-print-signatures-rep').onclick = () => {
+            const instSelector = document.getElementById('inst-selector');
+            const instNombre = instSelector.options[instSelector.selectedIndex].text;
+            const filterDepto = document.getElementById('filter-departamento');
+            const deptoNombre = filterDepto.selectedIndex > 0 ? filterDepto.options[filterDepto.selectedIndex].text : "Todos los Departamentos / Carreras";
+            
+            const printableItems = cursosArray.map(c => ({
+                horario: `${c.inicio} - ${c.fin}`,
+                docente: c.docenteStr,
+                detalle: c.detalleStr,
+                aula: c.aulaStr
+            }));
+
+            UI.printSignatureSheet(instNombre, `${deptoNombre} - ${diaStr.toUpperCase()}`, printableItems);
+        };
+    },
+
+    generarReporteSemanal: () => {
+        const resCnt = document.getElementById('report-results');
+        const uIdRaw = document.getElementById('dept-selector')?.value;
+        
+        const { asignaciones, materias, docentes, comisiones, aulas, modulos } = Reportes.datosMaestros;
+        const [uType, uIdNumeric] = uIdRaw && uIdRaw.includes(':') ? uIdRaw.split(':') : ['depto', uIdRaw];
+        const uId = parseInt(uIdNumeric);
+        
+        const filteredAsignaciones = asignaciones.filter(a => (uType === 'depto' ? a.departamento_id === uId : a.carrera_id === uId));
+
+        if (filteredAsignaciones.length === 0) {
+            resCnt.innerHTML = `<div class="empty-state">No hay actividades registradas para esta unidad académica esta semana.</div>`;
+            return;
+        }
+
+        // Agrupar por Día
+        const daysData = [[], [], [], [], []]; // L, M, X, J, V
+        const diasIndex = { 'lunes': 0, 'martes': 1, 'miércoles': 2, 'jueves': 3, 'viernes': 4, 'miercoles': 2 };
+        
+        filteredAsignaciones.forEach(a => {
+            const idx = diasIndex[a.dia_semana.toLowerCase()];
+            if (idx !== undefined) {
+                const m = modulos.find(mod => mod.id === a.modulo_id);
+                const com = comisiones.find(c => c.id === a.comision_id);
+                const mat = materias.find(ma => ma.id === (com ? com.materia_id : null));
+                const doc = docentes.find(d => d.id === a.docente_id);
+                const aula = aulas.find(au => au.id === a.aula_id);
+
+                daysData[idx].push({
+                    horario: m ? m.hora_inicio : '--:--',
+                    aula: aula ? aula.nombre : 'S/A',
+                    docente: doc ? `${doc.apellido}, ${doc.nombre}` : 'S/D',
+                    detalle: mat ? mat.nombre : (com ? com.codigo : 'S/M'),
+                    inicioMins: m ? (parseInt(m.hora_inicio.split(':')[0]) * 60 + parseInt(m.hora_inicio.split(':')[1])) : 0
+                });
+            }
+        });
+
+        // Ordenar cada día por hora
+        daysData.forEach(day => day.sort((a,b) => a.inicioMins - b.inicioMins));
+
+        const headers = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes'];
+
+        resCnt.innerHTML = `
+            <div class="report-header animated fadeIn">
+                <h3>📊 Vista Previa: Planilla Semanal Columnar</h3>
+                <p>Este formato elimina espacios vacíos y agrupa todo por columnas de día para ahorrar papel.</p>
+            </div>
+            <div class="columns-preview" style="display: flex; gap: 10px; margin-top: 20px; overflow-x: auto; padding-bottom: 15px;">
+                ${headers.map((h, i) => `
+                    <div class="column-preview" style="flex: 1; min-width: 180px; border: 1px solid #444; border-radius: 8px; background: rgba(255,255,255,0.05);">
+                        <div style="background: #333; padding: 5px; text-align: center; font-weight: bold; border-bottom: 1px solid #444;">${h}</div>
+                        <div style="padding: 10px; font-size: 0.85em;">
+                            ${daysData[i].length === 0 ? '<div style="color: #666; font-style: italic;">Sin actividad</div>' : 
+                                daysData[i].map(item => `
+                                    <div style="margin-bottom: 8px; border-bottom: 1px solid #333; padding-bottom: 4px;">
+                                        <div style="color: #a5b4fc; font-weight: bold;">${item.horario}</div>
+                                        <div style="color: #f8fafc;">${item.detalle}</div>
+                                        <div style="color: #94a3b8; font-size: 0.9em;">${item.docente}</div>
+                                    </div>
+                                `).join('')
+                            }
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div class="report-actions" style="margin-top: 20px; text-align: right;">
+                <button id="btn-print-weekly" class="btn-primary">🖨️ Imprimir Planilla Columnar (Horizontal)</button>
+            </div>
+        `;
+
+        document.getElementById('btn-print-weekly').onclick = () => {
+            const instSelector = document.getElementById('inst-selector');
+            const instNombre = instSelector.options[instSelector.selectedIndex].text;
+            const deptSelector = document.getElementById('dept-selector');
+            const deptoNombre = deptSelector.options[deptSelector.selectedIndex].text;
+            
+            UI.printWeeklyColumnSheet(instNombre, deptoNombre, daysData);
+        };
     },
 
     timeToMins: (tStr) => {

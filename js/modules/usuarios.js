@@ -73,6 +73,7 @@ export const Usuarios = {
                 <button id="btn-add-user" class="btn-primary">+ Nuevo Usuario</button>
             </div>
             
+            <div style="width: 100%; overflow-x: auto;">
             <table class="data-table">
                 <thead>
                     <tr>
@@ -101,6 +102,7 @@ export const Usuarios = {
                     `).join('')}
                 </tbody>
             </table>
+            </div>
         `;
 
         document.getElementById('btn-add-user').onclick = () => Usuarios.showForm(null, roles, instId);
