@@ -372,12 +372,14 @@ class CargoHorario(Base):
 class Calendario(Base):
     __tablename__ = "calendarios"
     id = Column(Integer, primary_key=True, index=True)
+    institucion_id = Column(Integer, ForeignKey("instituciones.id", ondelete="CASCADE"), nullable=True)
     departamento_id = Column(Integer, ForeignKey("departamentos.id", ondelete="CASCADE"), nullable=True)
     carrera_id = Column(Integer, ForeignKey("carreras.id", ondelete="CASCADE"), nullable=True)
     nombre = Column(String, index=True)
     descripcion = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+    institucion = relationship("Institucion")
     departamento = relationship("Departamento")
     carrera = relationship("Carrera", back_populates="calendarios")
 

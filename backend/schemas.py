@@ -590,6 +590,7 @@ class TokenData(BaseModel):
 # --- ESQUEMAS DE CALENDARIO ---
 
 class CalendarioBase(BaseModel):
+    institucion_id: Optional[int] = None
     departamento_id: Optional[int] = None
     carrera_id: Optional[int] = None
     nombre: str

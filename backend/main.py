@@ -1296,15 +1296,11 @@ async def get_calendarios(institucion_id: Optional[int] = None, departamento_id:
     
     query = db.query(models.Calendario)
     if institucion_id:
+        query = query.filter(models.Calendario.institucion_id == institucion_id)
         if d_id:
-            query = query.filter(models.Calendario.departamento_id == d_id)
+            query = query.filter((models.Calendario.departamento_id == d_id) | (models.Calendario.departamento_id == None))
         elif carrera_id:
-            query = query.filter(models.Calendario.carrera_id == carrera_id)
-        else:
-            query = query.join(models.Departamento, isouter=True).join(models.Carrera, isouter=True).filter(
-                (models.Departamento.institucion_id == institucion_id) | 
-                (models.Carrera.institucion_id == institucion_id)
-            )
+            query = query.filter((models.Calendario.carrera_id == carrera_id) | (models.Calendario.carrera_id == None))
     else:
         if d_id:
             query = query.filter(models.Calendario.departamento_id == d_id)
@@ -1313,12 +1309,13 @@ async def get_calendarios(institucion_id: Optional[int] = None, departamento_id:
     
     cals = query.all()
     if not cals:
-        # Si no hay calendarios y se pasó un departamento/carrera, creamos uno por defecto
-        if departamento_id or carrera_id:
+        # Si no hay calendarios y se pasó un departamento/carrera/institucion, creamos uno por defecto
+        if departamento_id or carrera_id or institucion_id:
             default_cal = models.Calendario(
                 nombre="Calendario Institucional", 
                 descripcion="Planificación académica general",
-                departamento_id=departamento_id,
+                institucion_id=institucion_id,
+                departamento_id=d_id,
                 carrera_id=carrera_id
             )
             db.add(default_cal)
@@ -1329,7 +1326,16 @@ async def get_calendarios(institucion_id: Optional[int] = None, departamento_id:
 
 @app.post("/calendarios", response_model=schemas.Calendario)
 async def create_calendario(cal: schemas.CalendarioCreate, db: Session = Depends(get_db)):
-    new_cal = models.Calendario(**cal.dict())
+    cal_data = cal.dict()
+    if not cal_data.get("institucion_id"):
+        if cal_data.get("departamento_id"):
+            depto = db.query(models.Departamento).filter(models.Departamento.id == cal_data["departamento_id"]).first()
+            if depto: cal_data["institucion_id"] = depto.institucion_id
+        elif cal_data.get("carrera_id"):
+            carrera = db.query(models.Carrera).filter(models.Carrera.id == cal_data["carrera_id"]).first()
+            if carrera: cal_data["institucion_id"] = carrera.institucion_id
+            
+    new_cal = models.Calendario(**cal_data)
     db.add(new_cal)
     db.commit()
     db.refresh(new_cal)
