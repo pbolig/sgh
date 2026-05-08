@@ -227,18 +227,17 @@ export const Dashboard = {
                 timeScaleHtml += '</div>';
                 html += timeScaleHtml;
 
+                let totalActivitiesCount = 0;
+
                 const deptosFilt = (deptos || []).filter(d => {
-                    // Solo departamentos de la institución actual (aunque list(instId) ya debería hacerlo)
-                    // Y filtrar por el depto específico si está seleccionado
+                    // Solo departamentos de la institución actual
                     if (instId && instId !== 'todas' && d.institucion_id && d.institucion_id.toString() !== instId.toString()) return false;
                     if (!selectedDeptId || selectedDeptId === 'todos' || selectedDeptId === '') return true;
                     
                     const [uType, uIdRaw] = selectedDeptId.includes(':') ? selectedDeptId.split(':') : ['depto', selectedDeptId];
                     const uId = uIdRaw ? parseInt(uIdRaw) : null;
                     if (uType === 'depto') return d.id === uId;
-                    if (uType === 'carrera') return true;
-                    
-                    return d.id.toString() === selectedDeptId;
+                    return true;
                 });
 
                 deptosFilt.forEach(depto => {
@@ -251,14 +250,23 @@ export const Dashboard = {
                     // Si hay un filtro por carrera, solo mostrar las aulas que tienen clases activas para esa carrera
                     if (selectedDeptId && selectedDeptId.includes('carrera:')) {
                         deptoAulas = deptoAulas.filter(aula => {
-                            return (allAsignaciones || []).some(as => as.aula_id === aula.id && as.dia_semana === diaActual);
+                            const hasAsignacion = (allAsignaciones || []).some(as => as.aula_id === aula.id && as.dia_semana === diaActual);
+                            const hasCargo = (cargoAsignaciones || []).some(ca => (ca.horarios || []).some(h => h.aula_id === aula.id && h.dia_semana === diaActual));
+                            return hasAsignacion || hasCargo;
                         });
                     }
 
                     if (deptoAulas.length === 0) return;
 
                     const deptoModulos = (modulos || []).filter(m => {
-                        return (allAsignaciones || []).some(as => as.modulo_id === m.id && deptoAulas.some(da => da.id === as.aula_id) && as.dia_semana === diaActual);
+                        const hasAsignacion = (allAsignaciones || []).some(as => as.modulo_id === m.id && deptoAulas.some(da => da.id === as.aula_id) && as.dia_semana === diaActual);
+                        // Los cargos no tienen modulo_id directo, se rigen por hora_inicio/hora_fin. 
+                        // Para la escala de recreos, usamos todos los módulos definidos si hay alguna actividad en el depto.
+                        const hasAnyActivity = deptoAulas.some(aula => {
+                            return (allAsignaciones || []).some(as => as.aula_id === aula.id && as.dia_semana === diaActual) ||
+                                   (cargoAsignaciones || []).some(ca => (ca.horarios || []).some(h => h.aula_id === aula.id && h.dia_semana === diaActual));
+                        });
+                        return hasAsignacion || hasAnyActivity;
                     }).sort((a, b) => a.hora_inicio.localeCompare(b.hora_inicio));
 
                     html += `
@@ -332,6 +340,8 @@ export const Dashboard = {
                                             }
                                         }
 
+                                        if (asigsAula.length > 0 || cargosAula.length > 0) totalActivitiesCount++;
+
                                         return `
                                             <div class="timeline-track">
                                                 <div class="track-label">${aula.nombre}</div>
@@ -387,7 +397,23 @@ export const Dashboard = {
                         </div>
                     `;
                 });
-                html += '</div></div>';
+                html += `
+                            </div> <!-- close inner-wrapper -->
+                        </div> <!-- close scroll-container -->
+                    `;
+
+                if (totalActivitiesCount === 0) {
+                    html = `
+                        <div class="no-activities-banner glass-card">
+                            <div class="na-icon">☕</div>
+                            <div class="na-text">
+                                <h3>Día sin actividades programadas</h3>
+                                <p>No se encontraron clases ni cargos asignados para el día de hoy (${diaNom}).</p>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 grid.innerHTML = html;
                 grid.setAttribute('data-rendered', 'true');
                 

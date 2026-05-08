@@ -530,12 +530,19 @@ async def get_docentes(institucion_id: Optional[int] = None, allowed_inst_id: Op
     query = db.query(models.Docente)
     
     if inst_id_to_filter:
-        # Compatibilidad: Buscar en la tabla M2M O en la columna legacy institucion_id
         from sqlalchemy import or_
         query = query.outerjoin(models.DocenteInstitucion).filter(
             or_(
                 models.DocenteInstitucion.institucion_id == inst_id_to_filter,
                 models.Docente.institucion_id == inst_id_to_filter
+            )
+        )
+    elif allowed_inst_id: # Seguridad extra si inst_id_to_filter fue None por error
+        from sqlalchemy import or_
+        query = query.outerjoin(models.DocenteInstitucion).filter(
+            or_(
+                models.DocenteInstitucion.institucion_id == allowed_inst_id,
+                models.Docente.institucion_id == allowed_inst_id
             )
         )
     
