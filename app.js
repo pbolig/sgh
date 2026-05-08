@@ -1,22 +1,22 @@
 // app.js - Lógica principal
-import { Auth } from './js/modules/auth.js?v=2.6.14';
-import { Departamentos } from './js/modules/departamentos.js?v=2.6.14';
-import { Docentes } from './js/modules/docentes.js?v=2.6.14';
-import { Materias } from './js/modules/materias.js?v=2.6.14';
-import { Aulas } from './js/modules/aulas.js?v=2.6.14';
-import { Comisiones } from './js/modules/comisiones.js?v=2.6.14';
-import { Editor } from './js/modules/editor.js?v=2.6.14';
-import { Dashboard } from './js/modules/dashboard.js?v=2.6.14';
-import { Reportes } from './js/modules/reportes.js?v=2.6.14';
-import { Cargos } from './js/modules/cargos.js?v=2.6.14';
-import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js?v=2.6.14';
-import { Calendario } from './js/modules/calendario.js?v=2.6.14';
-import { PAD } from './js/modules/pad.js?v=2.6.14';
-import { Instituciones } from './js/modules/instituciones.js?v=2.6.14';
-import { Permisos } from './js/modules/permisos.js?v=2.6.14';
-import { Usuarios } from './js/modules/usuarios.js?v=2.6.14';
-import { Comunicaciones } from './js/modules/comunicaciones.js?v=2.6.14';
-import { UI } from './js/utils/ui.js?v=2.6.14';
+import { Auth } from './js/modules/auth.js?v=2.6.15';
+import { Departamentos } from './js/modules/departamentos.js?v=2.6.15';
+import { Docentes } from './js/modules/docentes.js?v=2.6.15';
+import { Materias } from './js/modules/materias.js?v=2.6.15';
+import { Aulas } from './js/modules/aulas.js?v=2.6.15';
+import { Comisiones } from './js/modules/comisiones.js?v=2.6.15';
+import { Editor } from './js/modules/editor.js?v=2.6.15';
+import { Dashboard } from './js/modules/dashboard.js?v=2.6.15';
+import { Reportes } from './js/modules/reportes.js?v=2.6.15';
+import { Cargos } from './js/modules/cargos.js?v=2.6.15';
+import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js?v=2.6.15';
+import { Calendario } from './js/modules/calendario.js?v=2.6.15';
+import { PAD } from './js/modules/pad.js?v=2.6.15';
+import { Instituciones } from './js/modules/instituciones.js?v=2.6.15';
+import { Permisos } from './js/modules/permisos.js?v=2.6.15';
+import { Usuarios } from './js/modules/usuarios.js?v=2.6.15';
+import { Comunicaciones } from './js/modules/comunicaciones.js?v=2.6.15';
+import { UI } from './js/utils/ui.js?v=2.6.15';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Inicializar UI y Interceptor Global

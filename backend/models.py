@@ -200,8 +200,9 @@ class Aula(Base):
 
 class Comision(Base):
     __tablename__ = "comisiones"
+    __table_args__ = (UniqueConstraint('materia_id', 'codigo', name='uix_comision_codigo_materia'),)
     id = Column(Integer, primary_key=True, index=True)
-    codigo = Column(String, unique=True, index=True)
+    codigo = Column(String, index=True)
     materia_id = Column(Integer, ForeignKey("materias.id"))
     turno = Column(String) # 'mañana' o 'tarde'
     activo = Column(Integer, default=1)

@@ -876,8 +876,8 @@ async def create_comision(comision: schemas.ComisionCreate, db: Session = Depend
     except IntegrityError as e:
         db.rollback()
         error_msg = str(e.orig)
-        if "ix_comisiones_codigo" in error_msg or "duplicate key" in error_msg:
-            raise HTTPException(status_code=400, detail=f"El código de comisión '{comision.codigo}' ya está en uso. Por favor, elige otro.")
+        if "uix_comision_codigo_materia" in error_msg or "ix_comisiones_codigo" in error_msg or "duplicate key" in error_msg:
+            raise HTTPException(status_code=400, detail=f"El código de comisión '{comision.codigo}' ya está en uso para esta materia. Por favor, elige otro.")
         raise HTTPException(status_code=400, detail=f"Error de integridad en la base de datos: {error_msg}")
     except Exception as e:
         db.rollback()
@@ -907,8 +907,8 @@ async def update_comision(id: int, comision: schemas.ComisionBase, db: Session =
     except IntegrityError as e:
         db.rollback()
         error_msg = str(e.orig)
-        if "ix_comisiones_codigo" in error_msg or "duplicate key" in error_msg:
-            raise HTTPException(status_code=400, detail=f"El código de comisión '{comision.codigo}' ya está en uso. Por favor, elige otro.")
+        if "uix_comision_codigo_materia" in error_msg or "ix_comisiones_codigo" in error_msg or "duplicate key" in error_msg:
+            raise HTTPException(status_code=400, detail=f"El código de comisión '{comision.codigo}' ya está en uso para esta materia. Por favor, elige otro.")
         raise HTTPException(status_code=400, detail=f"Error de integridad en la base de datos: {error_msg}")
     except Exception as e:
         db.rollback()
