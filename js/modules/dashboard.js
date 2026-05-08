@@ -34,18 +34,7 @@ export const Dashboard = {
 
                     <!-- Botón de Acción Rápida: Planilla de Firmas -->
                     <div class="header-actions">
-                        <select id="dashboard-day-selector" class="select-mini" style="margin-right: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px 10px; border-radius: 4px;">
-                            <option value="lunes">Lunes</option>
-                            <option value="martes">Martes</option>
-                            <option value="miercoles">Miércoles</option>
-                            <option value="jueves">Jueves</option>
-                            <option value="viernes">Viernes</option>
-                            <option value="sabado">Sábado</option>
-                        </select>
-                        <button id="btn-print-signatures" class="btn-print-signatures" title="Imprimir Planilla de Firmas">
-                            <span class="icon">🖨️</span>
-                            <span class="text">Planilla</span>
-                        </button>
+                        <!-- El selector manual de día ha sido removido por pedido del usuario -->
                     </div>
                 </div>
                 <div id="dashboard-timelines" class="dashboard-timelines">
@@ -83,63 +72,7 @@ export const Dashboard = {
             })
         ]);
 
-        // Lógica del botón de impresión
-        const btnPrint = document.getElementById('btn-print-signatures');
-        if (btnPrint) {
-            btnPrint.onclick = () => {
-                const now = new Date();
-                const diasDB = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-                const diaActual = diasDB[now.getDay()];
-                const instSelector = document.getElementById('inst-selector');
-                const deptSelector = document.getElementById('dept-selector');
-                const instNombre = instSelector.options[instSelector.selectedIndex].text;
-                const deptoNombre = deptSelector.options[deptSelector.selectedIndex].text;
-                
-                // Recolectar items para la planilla
-                const items = [];
-                
-                // 1. Clases (Asignaciones)
-                allAsignaciones.filter(as => as.dia_semana === diaActual).forEach(as => {
-                    const m = modulos.find(mod => mod.id === as.modulo_id);
-                    const aula = aulas.find(au => au.id === as.aula_id);
-                    const doc = docentes.find(dc => dc.id === as.docente_id);
-                    const com = comisiones.find(c => c.id === as.comision_id);
-                    const mat = com ? (com.materia_nombre || com.codigo) : 'S/M';
 
-                    if (m && aula) {
-                        items.push({
-                            horario: `${m.hora_inicio} - ${m.hora_fin}`,
-                            docente: doc ? `${doc.apellido}, ${doc.nombre}` : 'SIN DOCENTE',
-                            detalle: mat,
-                            aula: aula.nombre,
-                            timestamp: m.hora_inicio // Para ordenar
-                        });
-                    }
-                });
-
-                // 2. Cargos (Personal de servicio)
-                cargoAsignaciones.forEach(ca => {
-                    const doc = docentes.find(dc => dc.id === ca.docente_id);
-                    const cgDef = cargos.find(c => c.id === ca.cargo_id);
-                    const slots = (ca.horarios || []).filter(h => h.dia_semana === diaActual);
-
-                    slots.forEach(s => {
-                        items.push({
-                            horario: `${s.hora_inicio} - ${s.hora_fin}`,
-                            docente: doc ? `${doc.apellido}, ${doc.nombre}` : 'SIN DOCENTE',
-                            detalle: `CARGO: ${cgDef ? cgDef.nombre : 'S/D'}`,
-                            aula: 'P. Servicio',
-                            timestamp: s.hora_inicio
-                        });
-                    });
-                });
-
-                // Ordenar por hora de inicio
-                items.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-
-                UI.printSignatureSheet(instNombre, `${deptoNombre} - ${now.toLocaleDateString()}`, items);
-            };
-        }
 
         // Asegurar que todos sean arrays para evitar errores de .forEach o .filter
         if (!Array.isArray(deptos)) deptos = [];
@@ -211,25 +144,15 @@ export const Dashboard = {
         const updateUI = () => {
             const now = new Date();
             const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+            const diaSemanaNormalizado = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
             
-            const daySelector = document.getElementById('dashboard-day-selector');
-            const manualDay = daySelector ? daySelector.value : null;
+            const sysDayIdx = now.getDay();
+            const diaNom = diasSemana[sysDayIdx];
+            let diaActual = diaSemanaNormalizado[sysDayIdx];
             
-            const diaNom = manualDay ? manualDay.charAt(0).toUpperCase() + manualDay.slice(1) : diasSemana[now.getDay()];
-            const diaActual = manualDay || ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][now.getDay()];
-            
-            // Si el selector no está inicializado, poner el día actual
-            if (daySelector && !daySelector.dataset.initialized) {
-                const sysDay = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][now.getDay()];
-                if (sysDay === 'domingo') daySelector.value = 'lunes'; // No hay clases domingo
-                else daySelector.value = sysDay;
-                daySelector.dataset.initialized = 'true';
-                daySelector.onchange = () => {
-                    const grid = document.getElementById('dashboard-timelines');
-                    if (grid) grid.removeAttribute('data-rendered');
-                    updateUI();
-                };
-            }
+            // Si es domingo, no hay clases, mostramos lunes como vista previa o dejamos el día actual
+            if (diaActual === 'domingo') diaActual = 'lunes'; 
+
 
             const currMins = now.getHours() * 60 + now.getMinutes();
 
