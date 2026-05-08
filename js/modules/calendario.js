@@ -374,9 +374,10 @@ export const Calendario = {
                 }
 
                 evts.forEach(e => {
+                    const deptoPrefix = e.departamento ? `🏷️ ${e.departamento.nombre}: ` : (e.carrera ? `🏷️ ${e.carrera.nombre}: ` : '');
                     dayEvents.push({
                         cat: e.categoria.nombre,
-                        desc: e.descripcion || 'Sin descripción',
+                        desc: deptoPrefix + (e.descripcion || 'Sin descripción'),
                         color: e.categoria.color,
                         private: e.es_privado,
                         noLaborable: e.es_no_laborable
@@ -400,7 +401,8 @@ export const Calendario = {
             if (!isDocente && !isAnnual) {
                 dotsHtml = evts.map(e => {
                     const privateClass = e.es_privado ? 'is-private' : '';
-                    return `<span class="dtxt ${privateClass}">${(e.es_privado ? '🔒 ' : '') + (e.descripcion || e.categoria.nombre)}</span>`;
+                    const deptoPrefix = e.departamento ? `🏷️ ${e.departamento.nombre}: ` : (e.carrera ? `🏷️ ${e.carrera.nombre}: ` : '');
+                    return `<span class="dtxt ${privateClass}">${(e.es_privado ? '🔒 ' : '') + deptoPrefix + (e.descripcion || e.categoria.nombre)}</span>`;
                 }).join('');
             }
 
@@ -530,13 +532,6 @@ export const Calendario = {
                         </div>
                         
                         <div class="modal-form-inline">
-                            <div class="form-group">
-                                <label>Alcance:</label>
-                                <select id="cal-event-scope" class="select-modern-mini">
-                                    <option value="global" selected>🏢 Institucional (Global)</option>
-                                    <option value="dept">🎓 Carrera</option>
-                                </select>
-                            </div>
                             <div class="modal-checks-horiz">
                                 <label class="modal-check-item">
                                     <input type="checkbox" id="cal-event-private">
@@ -586,12 +581,10 @@ export const Calendario = {
             return;
         }
         const isPrivate = document.getElementById('cal-event-private').checked;
-        const isNoLaborable = document.getElementById('cal-event-no-laborable').checked;
-        const scope = document.getElementById('cal-event-scope').value;
         const currentDeptoId = document.getElementById('dept-selector')?.value;
         
-        // El departamento_id es NULL si es global, o el ID actual si es para la carrera
-        const deptoIdToSave = scope === 'global' ? null : (currentDeptoId ? parseInt(currentDeptoId) : null);
+        // Automatización: si está en "Todas" (vacío), es NULL (Global). Si hay una carrera, se asigna a esa.
+        const deptoIdToSave = currentDeptoId ? parseInt(currentDeptoId) : null;
 
         const dates = this.getDateRange(this.selStart, this.selEnd);
         

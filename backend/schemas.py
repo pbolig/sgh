@@ -634,6 +634,8 @@ class CalendarioEventoCreate(CalendarioEventoBase):
 class CalendarioEvento(CalendarioEventoBase):
     id: int
     categoria: Optional[CalendarioCategoria] = None
+    departamento: Optional[Departamento] = None
+    carrera: Optional[Carrera] = None
     class Config:
         from_attributes = True
 
