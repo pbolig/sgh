@@ -10,6 +10,7 @@ class Institucion(Base):
     codigo = Column(String, unique=True, index=True)
     descripcion = Column(Text, nullable=True)
     logo_url = Column(String, nullable=True)
+    turnos_activos = Column(String, default="mañana,tarde,noche")
     activo = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

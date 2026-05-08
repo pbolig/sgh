@@ -1,22 +1,22 @@
 // app.js - Lógica principal
-import { Auth } from './js/modules/auth.js?v=2.6.15';
-import { Departamentos } from './js/modules/departamentos.js?v=2.6.15';
-import { Docentes } from './js/modules/docentes.js?v=2.6.15';
-import { Materias } from './js/modules/materias.js?v=2.6.15';
-import { Aulas } from './js/modules/aulas.js?v=2.6.15';
-import { Comisiones } from './js/modules/comisiones.js?v=2.6.15';
-import { Editor } from './js/modules/editor.js?v=2.6.15';
-import { Dashboard } from './js/modules/dashboard.js?v=2.6.15';
-import { Reportes } from './js/modules/reportes.js?v=2.6.15';
-import { Cargos } from './js/modules/cargos.js?v=2.6.15';
-import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js?v=2.6.15';
-import { Calendario } from './js/modules/calendario.js?v=2.6.15';
-import { PAD } from './js/modules/pad.js?v=2.6.15';
-import { Instituciones } from './js/modules/instituciones.js?v=2.6.15';
-import { Permisos } from './js/modules/permisos.js?v=2.6.15';
-import { Usuarios } from './js/modules/usuarios.js?v=2.6.15';
-import { Comunicaciones } from './js/modules/comunicaciones.js?v=2.6.15';
-import { UI } from './js/utils/ui.js?v=2.6.15';
+import { Auth } from './js/modules/auth.js?v=2.6.18';
+import { Departamentos } from './js/modules/departamentos.js?v=2.6.18';
+import { Docentes } from './js/modules/docentes.js?v=2.6.18';
+import { Materias } from './js/modules/materias.js?v=2.6.18';
+import { Aulas } from './js/modules/aulas.js?v=2.6.18';
+import { Comisiones } from './js/modules/comisiones.js?v=2.6.18';
+import { Editor } from './js/modules/editor.js?v=2.6.18';
+import { Dashboard } from './js/modules/dashboard.js?v=2.6.18';
+import { Reportes } from './js/modules/reportes.js?v=2.6.18';
+import { Cargos } from './js/modules/cargos.js?v=2.6.18';
+import { CargoAsignaciones } from './js/modules/cargo_asignaciones.js?v=2.6.18';
+import { Calendario } from './js/modules/calendario.js?v=2.6.18';
+import { PAD } from './js/modules/pad.js?v=2.6.18';
+import { Instituciones } from './js/modules/instituciones.js?v=2.6.18';
+import { Permisos } from './js/modules/permisos.js?v=2.6.18';
+import { Usuarios } from './js/modules/usuarios.js?v=2.6.18';
+import { Comunicaciones } from './js/modules/comunicaciones.js?v=2.6.18';
+import { UI } from './js/utils/ui.js?v=2.6.18';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Inicializar UI y Interceptor Global
@@ -88,10 +88,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Filtrado dinámico del sidebar basado en permisos
         filterSidebar(user);
 
-        initNavigation();
-        initSidebar();
         initHeaderToggle();
-        populateInstSelector();
+        initSidebar();
+        
+        // Cargar selectores y luego inicializar navegación para que el dashboard
+        // encuentre una institución seleccionada al arrancar
+        populateInstSelector().then(() => {
+            initNavigation();
+        });
 
         // Escuchar cambios en los datos de otros módulos
         window.addEventListener('data-changed', (e) => {
@@ -158,14 +162,33 @@ document.addEventListener('DOMContentLoaded', () => {
             
         // Restaurar selección previa o seleccionar la primera
         const saved = localStorage.getItem('selected-inst-id');
-        if (saved) selector.value = saved;
-        else if (list.length > 0) {
+        if (saved && list.find(i => i.id == saved)) {
+            selector.value = saved;
+        } else if (list.length > 0) {
             selector.value = list[0].id;
+            localStorage.setItem('selected-inst-id', list[0].id);
+        }
+
+        // Guardar turnos de la institución actual
+        const currentInst = list.find(i => i.id == selector.value);
+        if (currentInst) {
+            localStorage.setItem('active-shifts', currentInst.turnos_activos || "mañana,tarde,noche");
+        }
+
+        // Si solo hay una institución y es nueva selección, avisar al dashboard
+        if (list.length === 1 && !saved) {
+            localStorage.setItem('selected-inst-id', list[0].id);
         }
 
         selector.onchange = (e) => {
             const instId = e.target.value;
             localStorage.setItem('selected-inst-id', instId);
+            
+            const inst = list.find(i => i.id == instId);
+            if (inst) {
+                localStorage.setItem('active-shifts', inst.turnos_activos || "mañana,tarde,noche");
+            }
+
             populateDeptSelector(instId);
             
             // Refrescar vista actual para aplicar el filtro de institución
@@ -192,10 +215,13 @@ document.addEventListener('DOMContentLoaded', () => {
         selector.innerHTML = '<option value="">🏛️/🎓 Todos los Deptos / Carreras</option>' + 
             deptos.map(d => `<option value="${d.u_id}">${d.icono} ${d.nombre}</option>`).join('');
             
-        // Restaurar selección previa
-        const saved = localStorage.getItem('selected-dept-id'); // Ahora es tipo:id
+        // Restaurar selección previa o seleccionar la primera si solo hay una
+        const saved = localStorage.getItem('selected-dept-id');
         if (saved && deptos.find(d => d.u_id == saved)) {
             selector.value = saved;
+        } else if (deptos.length === 1) {
+            selector.value = deptos[0].u_id;
+            localStorage.setItem('selected-dept-id', deptos[0].u_id);
         }
 
         selector.onchange = (e) => {

@@ -8,6 +8,7 @@ class InstitucionBase(BaseModel):
     codigo: str
     descripcion: Optional[str] = None
     logo_url: Optional[str] = None
+    turnos_activos: Optional[str] = "mañana,tarde,noche"
     activo: Optional[int] = 1
 
 class InstitucionCreate(InstitucionBase):
@@ -18,6 +19,7 @@ class InstitucionUpdate(BaseModel):
     codigo: Optional[str] = None
     descripcion: Optional[str] = None
     logo_url: Optional[str] = None
+    turnos_activos: Optional[str] = None
     activo: Optional[int] = None
 
 class Institucion(InstitucionBase):

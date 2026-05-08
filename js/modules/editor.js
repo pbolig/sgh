@@ -35,7 +35,11 @@ export const Editor = {
 
         // El estado del día y turno se manejará dentro de loadGrid o via cierres
         let currentDia = 'todos';
-        let currentTurno = 'mañana';
+        
+        // Determinar turno inicial basado en configuración
+        const activeShiftsStr = localStorage.getItem('active-shifts') || "mañana,tarde,noche";
+        const activeShifts = activeShiftsStr.split(',');
+        let currentTurno = activeShifts.includes('mañana') ? 'mañana' : (activeShifts[0] || 'mañana');
 
         const updateGrid = () => {
             const deptoId = globalDeptoSelect.value;
@@ -148,9 +152,9 @@ export const Editor = {
                                             <option value="viernes" ${dia === 'viernes' ? 'selected' : ''}>Viernes</option>
                                         </select>
                                         <select onchange="window.updateEditorFilters('${dia}', this.value)" class="select-mini">
-                                            <option value="mañana" ${turno === 'mañana' ? 'selected' : ''}>Mañana</option>
-                                            <option value="tarde" ${turno === 'tarde' ? 'selected' : ''}>Tarde</option>
-                                            <option value="noche" ${turno === 'noche' ? 'selected' : ''}>Noche</option>
+                                            ${(localStorage.getItem('active-shifts') || "mañana,tarde,noche").split(',').map(t => `
+                                                <option value="${t}" ${turno === t ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                                            `).join('')}
                                         </select>
                                     </div>
                                     <span class="dept-title">${deptos.find(d => d.u_id == deptoId)?.nombre.toUpperCase() || 'UNIDAD ACADÉMICA'}</span>

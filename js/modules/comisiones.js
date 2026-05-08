@@ -156,9 +156,9 @@ export const Comisiones = {
                     <div class="form-group">
                         <label>Turno:</label>
                         <select name="turno" required>
-                            <option value="mañana" ${comision?.turno === 'mañana' ? 'selected' : ''}>Mañana</option>
-                            <option value="tarde" ${comision?.turno === 'tarde' ? 'selected' : ''}>Tarde</option>
-                            <option value="noche" ${comision?.turno === 'noche' ? 'selected' : ''}>Noche</option>
+                            ${(localStorage.getItem('active-shifts') || "mañana,tarde,noche").split(',').map(t => `
+                                <option value="${t}" ${comision?.turno === t ? 'selected' : ''}>${t.charAt(0).toUpperCase() + t.slice(1)}</option>
+                            `).join('')}
                         </select>
                     </div>
                     <div class="modal-actions">

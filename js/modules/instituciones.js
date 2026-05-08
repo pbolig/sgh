@@ -119,6 +119,20 @@ export const Instituciones = {
                             <label>Descripción</label>
                             <textarea id="inst-desc" rows="3"></textarea>
                         </div>
+                        <div class="form-group">
+                            <label>Turnos Activos</label>
+                            <div style="display: flex; gap: 15px; margin-top: 5px;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
+                                    <input type="checkbox" class="shift-toggle" value="mañana" checked> Mañana
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
+                                    <input type="checkbox" class="shift-toggle" value="tarde" checked> Tarde
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px; font-weight: normal;">
+                                    <input type="checkbox" class="shift-toggle" value="noche" checked> Noche
+                                </label>
+                            </div>
+                        </div>
                         <div class="modal-actions">
                             <button type="button" class="btn-secondary" id="btn-cancel-inst">Cancelar</button>
                             <button type="submit" class="btn-primary">Guardar</button>
@@ -154,6 +168,13 @@ export const Instituciones = {
                     document.getElementById('inst-jurisdiccion').value = inst.jurisdiccion || '';
                     document.getElementById('inst-logo').value = inst.logo_url || '';
                     document.getElementById('inst-desc').value = inst.descripcion || '';
+                    
+                    // Cargar turnos
+                    const turnos = (inst.turnos_activos || "mañana,tarde,noche").split(',');
+                    document.querySelectorAll('.shift-toggle').forEach(cb => {
+                        cb.checked = turnos.includes(cb.value);
+                    });
+
                     document.getElementById('inst-modal-title').textContent = 'Editar Institución';
                     modal.classList.add('active');
                 }
@@ -177,7 +198,8 @@ export const Instituciones = {
                 siglas: document.getElementById('inst-codigo').value,
                 jurisdiccion: document.getElementById('inst-jurisdiccion').value,
                 logo_url: document.getElementById('inst-logo').value,
-                descripcion: document.getElementById('inst-desc').value
+                descripcion: document.getElementById('inst-desc').value,
+                turnos_activos: Array.from(document.querySelectorAll('.shift-toggle:checked')).map(cb => cb.value).join(',')
             };
             await this.save(instData);
             modal.classList.remove('active');

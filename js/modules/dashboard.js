@@ -34,9 +34,17 @@ export const Dashboard = {
 
                     <!-- Botón de Acción Rápida: Planilla de Firmas -->
                     <div class="header-actions">
-                        <button id="btn-print-signatures" class="btn-print-signatures" title="Imprimir Planilla de Firmas de Hoy">
+                        <select id="dashboard-day-selector" class="select-mini" style="margin-right: 10px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 5px 10px; border-radius: 4px;">
+                            <option value="lunes">Lunes</option>
+                            <option value="martes">Martes</option>
+                            <option value="miercoles">Miércoles</option>
+                            <option value="jueves">Jueves</option>
+                            <option value="viernes">Viernes</option>
+                            <option value="sabado">Sábado</option>
+                        </select>
+                        <button id="btn-print-signatures" class="btn-print-signatures" title="Imprimir Planilla de Firmas">
                             <span class="icon">🖨️</span>
-                            <span class="text">Planilla de Hoy</span>
+                            <span class="text">Planilla</span>
                         </button>
                     </div>
                 </div>
@@ -203,8 +211,26 @@ export const Dashboard = {
         const updateUI = () => {
             const now = new Date();
             const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-            const diaNom = diasSemana[now.getDay()];
-            const diaActual = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][now.getDay()];
+            
+            const daySelector = document.getElementById('dashboard-day-selector');
+            const manualDay = daySelector ? daySelector.value : null;
+            
+            const diaNom = manualDay ? manualDay.charAt(0).toUpperCase() + manualDay.slice(1) : diasSemana[now.getDay()];
+            const diaActual = manualDay || ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][now.getDay()];
+            
+            // Si el selector no está inicializado, poner el día actual
+            if (daySelector && !daySelector.dataset.initialized) {
+                const sysDay = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'][now.getDay()];
+                if (sysDay === 'domingo') daySelector.value = 'lunes'; // No hay clases domingo
+                else daySelector.value = sysDay;
+                daySelector.dataset.initialized = 'true';
+                daySelector.onchange = () => {
+                    const grid = document.getElementById('dashboard-timelines');
+                    if (grid) grid.removeAttribute('data-rendered');
+                    updateUI();
+                };
+            }
+
             const currMins = now.getHours() * 60 + now.getMinutes();
 
             // Refrescar reloj Retro Digital
@@ -338,6 +364,31 @@ export const Dashboard = {
                                                 `;
                                             }
                                         });
+                                         
+                                         // Bloques de Cargo / Horas Cátedra (NUEVO: Integrar en pistas de aula)
+                                         const cargosAula = (cargoAsignaciones || []).filter(ca => 
+                                             (ca.horarios || []).some(h => h.aula_id === aula.id && h.dia_semana === diaActual)
+                                         );
+                                         cargosAula.forEach(ca => {
+                                             const doc = docentes.find(d => d.id === ca.docente_id);
+                                             const cgDef = (cargos || []).find(c => c.id === ca.cargo_id);
+                                             const slots = ca.horarios.filter(h => h.aula_id === aula.id && h.dia_semana === diaActual);
+                                             
+                                             slots.forEach(s => {
+                                                 const left = getLeftPercent(s.hora_inicio);
+                                                 const width = getWidthPercent(s.hora_inicio, s.hora_fin);
+                                                 // Buscar comisión si está vinculada al slot
+                                                 const com = (comisiones || []).find(c => c.id === s.comision_id);
+                                                 
+                                                 tracksHtml += `
+                                                     <div class="time-block block-cargo" style="left: ${left}%; width: ${width}%">
+                                                         <div class="tb-head">${com ? com.codigo : (cgDef ? cgDef.nombre : 'CARGO')}</div>
+                                                         <div class="tb-body">${doc ? doc.apellido : ''}</div>
+                                                         <div class="tb-time">${s.hora_inicio}-${s.hora_fin}</div>
+                                                     </div>
+                                                 `;
+                                             });
+                                         });
 
                                         // Bloques de recreo para este depto
                                         for (let i = 0; i < deptoModulos.length - 1; i++) {
