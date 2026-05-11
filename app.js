@@ -56,6 +56,68 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- LÓGICA DE AUTO-REGISTRO ---
+    
+    document.getElementById('btn-show-register')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('register-screen').classList.remove('hidden');
+        loadRegistrationInstitutions();
+    });
+
+    document.getElementById('btn-back-to-login')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.getElementById('register-screen').classList.add('hidden');
+        document.getElementById('login-screen').classList.remove('hidden');
+    });
+
+    async function loadRegistrationInstitutions() {
+        const select = document.getElementById('reg-institucion');
+        if (!select) return;
+        try {
+            // Usaremos el nuevo endpoint público
+            const response = await fetch('/api/auth/instituciones');
+            const insts = await response.json();
+            select.innerHTML = '<option value="">Seleccione su institución</option>' + 
+                insts.map(i => `<option value="${i.id}">${i.nombre}</option>`).join('');
+        } catch (error) {
+            console.error('Error cargando instituciones:', error);
+        }
+    }
+
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) {
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const data = {
+                nombre: document.getElementById('reg-nombre').value,
+                apellido: document.getElementById('reg-apellido').value,
+                email: document.getElementById('reg-email').value,
+                institucion_id: parseInt(document.getElementById('reg-institucion').value),
+                username: document.getElementById('reg-username').value,
+                password: document.getElementById('reg-password').value
+            };
+
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(result.message || 'Registro exitoso. Espere aprobación administrativa.');
+                    document.getElementById('register-screen').classList.add('hidden');
+                    document.getElementById('login-screen').classList.remove('hidden');
+                } else {
+                    alert('Error: ' + (result.detail || 'No se pudo completar el registro'));
+                }
+            } catch (error) {
+                alert('Error al conectar con el servidor');
+            }
+        });
+    }
+
     function showMainScreen() {
         const user = Auth.getUser();
         if (!user) {

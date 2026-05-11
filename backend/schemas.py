@@ -84,6 +84,18 @@ class UsuarioCreate(UsuarioBase):
     apellido: Optional[str] = None
     crear_perfil: Optional[bool] = False
 
+class UsuarioRegister(BaseModel):
+    username: str
+    password: str
+    email: str
+    nombre: str
+    apellido: str
+    institucion_id: int
+
+class UsuarioAprobar(BaseModel):
+    rol_id: int
+    tipo_perfil: str # "docente" o "cargo"
+
 class UsuarioUpdate(BaseModel):
     username: Optional[str] = None
     password: Optional[str] = None

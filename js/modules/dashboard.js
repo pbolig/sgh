@@ -72,6 +72,33 @@ export const Dashboard = {
             })
         ]);
 
+        // --- ALERTA DE USUARIOS PENDIENTES (Solo Admins) ---
+        const user = Auth.getUser();
+        if (user && (user.rol === 'admin' || user.rol === 'directivo')) {
+            try {
+                const pRes = await fetch('/api/usuarios/pendientes', { headers: authHeader });
+                if (pRes.ok) {
+                    const pendings = await pRes.json();
+                    if (pendings.length > 0) {
+                        const alertsPanel = document.getElementById('smart-alerts-panel');
+                        if (alertsPanel) {
+                            alertsPanel.innerHTML = `
+                                <div class="sa-alert" style="border-left: 4px solid #f59e0b; background: linear-gradient(90deg, rgba(245, 158, 11, 0.2) 0%, rgba(15, 23, 42, 0.8) 100%); cursor: pointer; margin-bottom: 0.5rem;" onclick="window.loadView('usuarios')">
+                                    <div class="sa-content">
+                                        <span class="sa-icon">👤</span>
+                                        <div class="sa-text">
+                                            <div style="font-weight: 700; color: #f59e0b;">SOLICITUDES DE ACCESO</div>
+                                            <div style="font-size: 0.85rem;">Hay ${pendings.length} usuarios pendientes de aprobación.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ` + alertsPanel.innerHTML;
+                        }
+                    }
+                }
+            } catch (e) { console.error("Error al cargar pendientes:", e); }
+        }
+
 
 
         // Asegurar que todos sean arrays para evitar errores de .forEach o .filter

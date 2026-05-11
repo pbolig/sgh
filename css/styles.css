@@ -313,7 +313,7 @@ h1, h2, h3 {
 /* Quitamos .screen de aquí para evitar conflictos con la redefinición arriba */
 
 /* Login Screen Styles */
-#login-screen {
+#login-screen, #register-screen {
     background: radial-gradient(circle at top right, #1e1b4b, #0f172a);
     justify-content: center;
     align-items: center;

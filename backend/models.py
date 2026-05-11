@@ -74,6 +74,8 @@ class Usuario(Base):
     institucion = relationship("Institucion")
     rol_obj = relationship("Rol")
     email = Column(String, nullable=True) # Para notificaciones generales
+    nombre_registro = Column(String, nullable=True)
+    apellido_registro = Column(String, nullable=True)
 
 class Departamento(Base):
     __tablename__ = "departamentos"

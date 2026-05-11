@@ -138,6 +138,54 @@ async def login(
 async def read_users_me(current_user: models.Usuario = Depends(get_current_user)):
     return current_user
 
+@app.post("/auth/register")
+async def register_user(user: schemas.UsuarioRegister, db: Session = Depends(get_db)):
+    # 1. Verificar si el usuario ya existe
+    db_user = db.query(models.Usuario).filter(models.Usuario.username == user.username).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+    
+    # 2. Crear usuario inactivo (pendiente de aprobación)
+    new_user = models.Usuario(
+        username=user.username,
+        password_hash=auth_utils.get_password_hash(user.password),
+        email=user.email,
+        nombre_registro=user.nombre,
+        apellido_registro=user.apellido,
+        institucion_id=user.institucion_id,
+        activo=0,  # Pendiente
+        rol="invitado" # Rol base temporal
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    # 3. Notificaciones por Email
+    # Mail al usuario
+    subject_u = "Registro Recibido - SGH"
+    body_u = f"<h3>Hola {user.nombre}</h3><p>Tu solicitud de registro en SGH ha sido recibida correctamente y se encuentra a la espera de aprobación por parte de un administrador de tu institución.</p>"
+    comms_utils.send_email(user.email, subject_u, body_u)
+    
+    # Mail a los administradores de la institución
+    admins = db.query(models.Usuario).filter(
+        models.Usuario.institucion_id == user.institucion_id,
+        models.Usuario.rol.in_(["admin", "directivo"]),
+        models.Usuario.activo == 1
+    ).all()
+    
+    subject_a = "SGH: Nueva Solicitud de Registro Pendiente"
+    body_a = f"<h3>Nueva Solicitud</h3><p>El usuario <b>{user.nombre} {user.apellido}</b> ({user.username}) se ha registrado para tu institución y requiere aprobación administrativa.</p>"
+    
+    for admin in admins:
+        if admin.email:
+            comms_utils.send_email(admin.email, subject_a, body_a)
+            
+    return {"message": "Registro exitoso. Tu cuenta está pendiente de aprobación administrativa."}
+
+@app.get("/auth/instituciones", response_model=List[schemas.Institucion])
+async def get_public_instituciones(db: Session = Depends(get_db)):
+    return db.query(models.Institucion).filter(models.Institucion.activo == 1).all()
+
 # --- ROLES Y PERMISOS (RBAC) ---
 
 @app.get("/roles", response_model=List[schemas.Rol])
@@ -211,6 +259,55 @@ async def get_mis_permisos(user: models.Usuario = Depends(get_current_user), db:
     return db.query(models.Permiso).filter(models.Permiso.rol_id == user.rol_id).all()
 
 # --- GESTIÓN DE USUARIOS ---
+
+@app.get("/usuarios/pendientes", response_model=List[schemas.Usuario])
+async def get_usuarios_pendientes(inst_id: Optional[int] = Depends(get_allowed_institucion_id), db: Session = Depends(get_db)):
+    query = db.query(models.Usuario).filter(models.Usuario.activo == 0)
+    if inst_id:
+        query = query.filter(models.Usuario.institucion_id == inst_id)
+    return query.all()
+
+@app.post("/usuarios/{id}/aprobar")
+async def aprobar_usuario(id: int, data: schemas.UsuarioAprobar, db: Session = Depends(get_db), current_user: models.Usuario = Depends(get_current_user)):
+    if current_user.rol not in ["admin", "directivo"]:
+        raise HTTPException(status_code=403, detail="No tiene permisos")
+    
+    db_user = db.query(models.Usuario).filter(models.Usuario.id == id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # 1. Actualizar Usuario
+    rol_obj = db.query(models.Rol).filter(models.Rol.id == data.rol_id).first()
+    db_user.rol_id = data.rol_id
+    db_user.rol = rol_obj.nombre if rol_obj else "invitado"
+    db_user.activo = 1
+    
+    # 2. Crear Perfil según tipo (si es docente)
+    if data.tipo_perfil == "docente":
+        new_docente = models.Docente(
+            usuario_id=db_user.id,
+            nombre=db_user.nombre_registro,
+            apellido=db_user.apellido_registro,
+            email=db_user.email,
+            institucion_id=db_user.institucion_id
+        )
+        db.add(new_docente)
+        db.flush()
+        # Vincular M2M Institución
+        db.execute(models.DocenteInstitucion.__table__.insert().values(
+            docente_id=new_docente.id,
+            institucion_id=db_user.institucion_id
+        ))
+    
+    db.commit()
+    
+    # 3. Notificación al Usuario
+    if db_user.email:
+        subject = "SGH: ¡Cuenta Aprobada!"
+        body = f"<h3>Hola {db_user.nombre_registro}</h3><p>Tu cuenta ha sido aprobada por la administración. Ya puedes ingresar al sistema con tu usuario y contraseña.</p>"
+        comms_utils.send_email(db_user.email, subject, body)
+        
+    return {"message": "Usuario aprobado correctamente"}
 
 @app.get("/usuarios", response_model=List[schemas.Usuario])
 async def get_usuarios(institucion_id: Optional[str] = None, allowed_inst_id: Optional[int] = Depends(get_allowed_institucion_id), db: Session = Depends(get_db)):
