@@ -1,0 +1,23 @@
+daniela@genovesi.com.ar 
+1234
+
+javierrambaldo@gmail.com
+1234
+
+pedro.bolig@gmail.com
+1234
+
+gbaro@unr.edu.ar
+1234
+
+pboligisetadmin
+1234
+
+pboligsupeadmin
+1234
+
+
+¡Sí! Aquí están los dos archivos principales que necesitas:
+
+compare_db_integrity.py: Este es el Auditor. Compara tabla por tabla las cantidades de registros entre tu base de datos local y la de producción.
+sync_and_verify.py: Este es el Sincronizador. Se encarga de traer los datos reales de producción a tu máquina local para que puedas trabajar con datos frescos.
