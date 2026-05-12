@@ -148,6 +148,7 @@ async def register_user(user: schemas.UsuarioRegister, db: Session = Depends(get
         
         # 2. Crear usuario inactivo (pendiente de aprobación)
         try:
+            # Intentar crear con todos los campos
             new_user = models.Usuario(
                 username=user.username,
                 password_hash=auth_utils.get_password_hash(user.password),
@@ -157,6 +158,21 @@ async def register_user(user: schemas.UsuarioRegister, db: Session = Depends(get
                 institucion_id=user.institucion_id,
                 activo=0,  # Pendiente
                 rol="invitado" # Rol base temporal
+            )
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+        except Exception as e_db:
+            db.rollback()
+            print(f"AVISO: Fallo al guardar campos extendidos, intentando registro básico: {e_db}")
+            # Intento de registro básico si fallan las columnas nuevas
+            new_user = models.Usuario(
+                username=user.username,
+                password_hash=auth_utils.get_password_hash(user.password),
+                email=user.email,
+                institucion_id=user.institucion_id,
+                activo=0,
+                rol="invitado"
             )
             db.add(new_user)
             db.commit()
