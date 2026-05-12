@@ -140,47 +140,62 @@ async def read_users_me(current_user: models.Usuario = Depends(get_current_user)
 
 @app.post("/auth/register")
 async def register_user(user: schemas.UsuarioRegister, db: Session = Depends(get_db)):
-    # 1. Verificar si el usuario ya existe
-    db_user = db.query(models.Usuario).filter(models.Usuario.username == user.username).first()
-    if db_user:
-        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
-    
-    # 2. Crear usuario inactivo (pendiente de aprobación)
-    new_user = models.Usuario(
-        username=user.username,
-        password_hash=auth_utils.get_password_hash(user.password),
-        email=user.email,
-        nombre_registro=user.nombre,
-        apellido_registro=user.apellido,
-        institucion_id=user.institucion_id,
-        activo=0,  # Pendiente
-        rol="invitado" # Rol base temporal
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    
-    # 3. Notificaciones por Email
-    # Mail al usuario
-    subject_u = "Registro Recibido - SGH"
-    body_u = f"<h3>Hola {user.nombre}</h3><p>Tu solicitud de registro en SGH ha sido recibida correctamente y se encuentra a la espera de aprobación por parte de un administrador de tu institución.</p>"
-    comms_utils.send_email(user.email, subject_u, body_u)
-    
-    # Mail a los administradores de la institución
-    admins = db.query(models.Usuario).filter(
-        models.Usuario.institucion_id == user.institucion_id,
-        models.Usuario.rol.in_(["admin", "directivo"]),
-        models.Usuario.activo == 1
-    ).all()
-    
-    subject_a = "SGH: Nueva Solicitud de Registro Pendiente"
-    body_a = f"<h3>Nueva Solicitud</h3><p>El usuario <b>{user.nombre} {user.apellido}</b> ({user.username}) se ha registrado para tu institución y requiere aprobación administrativa.</p>"
-    
-    for admin in admins:
-        if admin.email:
-            comms_utils.send_email(admin.email, subject_a, body_a)
+    try:
+        # 1. Verificar si el usuario ya existe
+        db_user = db.query(models.Usuario).filter(models.Usuario.username == user.username).first()
+        if db_user:
+            raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+        
+        # 2. Crear usuario inactivo (pendiente de aprobación)
+        try:
+            new_user = models.Usuario(
+                username=user.username,
+                password_hash=auth_utils.get_password_hash(user.password),
+                email=user.email,
+                nombre_registro=user.nombre,
+                apellido_registro=user.apellido,
+                institucion_id=user.institucion_id,
+                activo=0,  # Pendiente
+                rol="invitado" # Rol base temporal
+            )
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+        except Exception as e:
+            db.rollback()
+            print(f"ERROR DB REGISTRO: {e}")
+            raise HTTPException(status_code=500, detail=f"Error en base de datos: {str(e)}")
+        
+        # 3. Notificaciones por Email (No bloqueantes)
+        try:
+            # Mail al usuario
+            subject_u = "Registro Recibido - SGH"
+            body_u = f"<h3>Hola {user.nombre}</h3><p>Tu solicitud de registro en SGH ha sido recibida correctamente y se encuentra a la espera de aprobación por parte de un administrador de tu institución.</p>"
+            comms_utils.send_email(user.email, subject_u, body_u)
             
-    return {"message": "Registro exitoso. Tu cuenta está pendiente de aprobación administrativa."}
+            # Mail a los administradores de la institución
+            admins = db.query(models.Usuario).filter(
+                models.Usuario.institucion_id == user.institucion_id,
+                models.Usuario.rol.in_(["admin", "directivo"]),
+                models.Usuario.activo == 1
+            ).all()
+            
+            subject_a = "SGH: Nueva Solicitud de Registro Pendiente"
+            body_a = f"<h3>Nueva Solicitud</h3><p>El usuario <b>{user.nombre} {user.apellido}</b> ({user.username}) se ha registrado para tu institución y requiere aprobación administrativa.</p>"
+            
+            for admin in admins:
+                if admin.email:
+                    comms_utils.send_email(admin.email, subject_a, body_a)
+        except Exception as e_mail:
+            print(f"AVISO: Error enviando mails de registro: {e_mail}")
+            # No lanzamos excepción aquí para que el usuario igual quede registrado
+                
+        return {"message": "Registro exitoso. Tu cuenta está pendiente de aprobación administrativa."}
+    except HTTPException:
+        raise
+    except Exception as e_global:
+        print(f"ERROR GLOBAL REGISTRO: {e_global}")
+        raise HTTPException(status_code=500, detail="Error interno del servidor al procesar el registro")
 
 @app.get("/auth/instituciones", response_model=List[schemas.Institucion])
 async def get_public_instituciones(db: Session = Depends(get_db)):
